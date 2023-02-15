@@ -1,0 +1,41 @@
+Bluno Devices
+
+Device 34:14:b5:51:d9:04 (public), RSSI=-49 dB
+  Flags = 05
+  Manufacturer = 4c000215e2c56db5dffb48d2b060d0f5a71096e000000000c5
+  Complete Local Name = Bluno
+  0x12 = 10002000
+  Tx Power = 00
+  Incomplete 16b Services = 0000dfb0-0000-1000-8000-00805f9b34fb,00001812-0000-1000-8000-00805f9b34fb
+
+Device 34:15:13:22:a1:37 (public), RSSI=-63 dB
+  Flags = 05
+  Manufacturer = 4c000215e2c56db5dffb48d2b060d0f5a71096e000000000c5
+  Complete Local Name = Bluno
+  0x12 = 10002000
+  Tx Power = 00
+  Incomplete 16b Services = 0000dfb0-0000-1000-8000-00805f9b34fb,00001812-0000-1000-8000-00805f9b34fb
+  
+  Device 80:30:dc:e9:08:d7 (public), RSSI=-42 dB
+  Flags = 05
+  Manufacturer = 4c000215e2c56db5dffb48d2b060d0f5a71096e000000000c5
+  Complete Local Name = Bluno
+  0x12 = 10002000
+  Tx Power = 00
+  Incomplete 16b Services = 0000dfb0-0000-1000-8000-00805f9b34fb,00001812-0000-1000-8000-00805f9b34fb
+  
+  Device 80:30:dc:d9:23:27 (public), RSSI=-43 dB
+  Flags = 05
+  Manufacturer = 4c000215e2c56db5dffb48d2b060d0f5a71096e000000000c5
+  Complete Local Name = Bluno
+  0x12 = 10002000
+  Tx Power = 00
+  Incomplete 16b Services = 0000dfb0-0000-1000-8000-00805f9b34fb,00001812-0000-1000-8000-00805f9b34fb
+  
+  Device 80:30:dc:d9:1f:93 (public), RSSI=-56 dB
+  Flags = 05
+  Manufacturer = 4c000215e2c56db5dffb48d2b060d0f5a71096e000000000c5
+  Complete Local Name = Bluno
+  0x12 = 10002000
+  Tx Power = 00
+  Incomplete 16b Services = 0000dfb0-0000-1000-8000-00805f9b34fb,00001812-0000-1000-8000-00805f9b34fb
