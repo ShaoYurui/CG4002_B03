@@ -13,6 +13,13 @@ need_better_display = False
 need_write_to_file = True
 ACTION_NUM = 1
 
+
+file_index = 1
+file_name = "imu_data"
+is_movement_detected = False
+file_length = 0
+
+
 if need_better_display:
     import curses
 
@@ -31,7 +38,8 @@ mac = list()
 #mac.append('80:30:dc:d9:1f:93') # gun
 #mac.append('80:30:dc:d9:23:27') # vest
 #mac.append('34:15:13:22:a1:37') # vest
-mac.append('80:30:dc:e9:1c:74') # imu
+#mac.append('80:30:dc:e9:1c:74') # imu X
+mac.append('80:30:dc:e9:08:d7') # imu
 ##mac.append('34:14:b5:51:d9:04') # temp imu
 
 d = list() #devices list
@@ -106,7 +114,8 @@ class CommunicationDelegate(btle.DefaultDelegate):
                         d[self.pid].n_fragment += 1
                 else:
                     if need_write_to_file:
-                        writeToFile("imu_data", indata, (time.time()-d[self.pid].start_time))
+                        writeToFile(indata)
+                        
                     if need_n_packet_loss:
                         if d[self.pid].prev_msg_id == -1:
                             d[self.pid].prev_msg_id = indata[1]
@@ -202,26 +211,13 @@ class ImuData:
         return True
 
 
-file_index = 1
-is_movement_detected = False
 imu_indata = ImuData(-1)
 
-
-def writeToFile(filename, indata, time):
-    global imu_indata, file_index, is_movement_detected
+def writeToFile(indata):
+    global imu_indata, file_index, is_movement_detected, file_name, file_length
     if imu_indata.id != indata[1]:
         imu_indata = ImuData(indata[1])
 
-    '''
-    if indata[0] == 6:
-        imu_indata.acc_x = struct.unpack('>f', indata[3:7])[0]
-        imu_indata.acc_y = struct.unpack('>f', indata[7:11])[0]
-        imu_indata.acc_z = struct.unpack('>f', indata[11:15])[0]
-    if indata[0] == 22:
-        imu_indata.gyro_x = struct.unpack('>f', indata[3:7])[0]
-        imu_indata.gyro_y = struct.unpack('>f', indata[7:11])[0]
-        imu_indata.gyro_z = struct.unpack('>f', indata[11:15])[0]
-    '''
 
     if indata[0] == 6:
         imu_indata.timestamp = struct.unpack('>L', indata[3:7])[0]
@@ -231,20 +227,29 @@ def writeToFile(filename, indata, time):
         imu_indata.gyro_x = struct.unpack('>h', indata[13:15])[0]
         imu_indata.gyro_y = struct.unpack('>h', indata[15:17])[0]
         imu_indata.gyro_z = struct.unpack('>h', indata[17:19])[0]
-        print(f"""{imu_indata.timestamp},{ACTION_NUM},{imu_indata.acc_x},{imu_indata.acc_y},{imu_indata.acc_z},{imu_indata.gyro_x},{imu_indata.gyro_y},{imu_indata.gyro_z}\n""")
-
+        
     if imu_indata.is_completed():
-        imu_filename = f"""./data/{filename}_{file_index}.csv"""
+        imu_filename = f"""./data/{file_name}_{file_index}.csv"""
         if imu_indata.is_moving():
             is_movement_detected = True
+            file_length = file_length + 1
             with open(imu_filename, "a") as f:
                 f.write(f"""{imu_indata.timestamp},{ACTION_NUM},{imu_indata.acc_x},{imu_indata.acc_y},{imu_indata.acc_z},{imu_indata.gyro_x},{imu_indata.gyro_y},{imu_indata.gyro_z}\n""")
                 f.close()
+'''
         else:
             if is_movement_detected:
-                file_index = file_index + 1
-                print(f"""./data/{filename}_{file_index}.csv""")
+                if file_length >= 15:
+                    print(f"""{imu_filename} saved""")
+                    file_index = file_index + 1
+                else:
+                    file_length = 0
+                    with open(imu_filename, "w") as f:
+                        f.write("")
+                        f.close()
+                file_length = 0
             is_movement_detected = False
+'''
 
 
 def reorderData(data):
