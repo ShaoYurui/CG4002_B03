@@ -88,8 +88,8 @@ class CommunicationDelegate(btle.DefaultDelegate):
                 else:
                     print("Device[{id}] handshake ACK received".format(id=self.pid))
                 # d[self.pid].ch.write(ACK)
-                if not self.pid == 2:  # no ack for imu
-                    d[self.pid].ch.write(ACK)
+                #if not self.pid == 2:  # no ack for imu
+                #    d[self.pid].ch.write(ACK)
 
                 if need_elapsed_time:
                     if d[self.pid].start_time == 0:
@@ -97,8 +97,9 @@ class CommunicationDelegate(btle.DefaultDelegate):
             else:
                 reorderData(indata)
                 if not verifyValidData(indata):
-                    #if not need_better_display:
-                    #    print("Device[{id}] received invalid data".format(id=self.pid))
+                    if not need_better_display:
+                        print("Device[{id}] received invalid data".format(id=self.pid))
+                        print("Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
                     if need_n_corrupt:
                         d[self.pid].error_count += 1
                     if need_n_packet_fragmented:
@@ -170,8 +171,8 @@ class CommunicationDelegate(btle.DefaultDelegate):
                     #else:
                     #    print("Elapsed time: {time}".format(time=time.time()-d[self.pid].start_time))
 
-                if not self.pid == 2: #no ack for imu
-                    d[self.pid].ch.write(ACK)
+                #if not self.pid == 2: #no ack for imu
+                #    d[self.pid].ch.write(ACK)
 
             
 
@@ -184,6 +185,7 @@ class ImuData:
         self.gyro_x = -1
         self.gyro_y = -1
         self.gyro_z = -1
+        self.timestamp = -1
 
     def is_completed(self):
         if self.acc_x + self.acc_y + self.acc_z == -3:
@@ -210,6 +212,7 @@ def writeToFile(filename, indata, time):
     if imu_indata.id != indata[1]:
         imu_indata = ImuData(indata[1])
 
+    '''
     if indata[0] == 6:
         imu_indata.acc_x = struct.unpack('>f', indata[3:7])[0]
         imu_indata.acc_y = struct.unpack('>f', indata[7:11])[0]
@@ -218,13 +221,24 @@ def writeToFile(filename, indata, time):
         imu_indata.gyro_x = struct.unpack('>f', indata[3:7])[0]
         imu_indata.gyro_y = struct.unpack('>f', indata[7:11])[0]
         imu_indata.gyro_z = struct.unpack('>f', indata[11:15])[0]
+    '''
+
+    if indata[0] == 6:
+        imu_indata.timestamp = struct.unpack('>L', indata[3:7])[0]
+        imu_indata.acc_x = struct.unpack('>h', indata[7:9])[0]
+        imu_indata.acc_y = struct.unpack('>h', indata[9:11])[0]
+        imu_indata.acc_z = struct.unpack('>h', indata[11:13])[0]
+        imu_indata.gyro_x = struct.unpack('>h', indata[13:15])[0]
+        imu_indata.gyro_y = struct.unpack('>h', indata[15:17])[0]
+        imu_indata.gyro_z = struct.unpack('>h', indata[17:19])[0]
+        print(f"""{imu_indata.timestamp},{ACTION_NUM},{imu_indata.acc_x},{imu_indata.acc_y},{imu_indata.acc_z},{imu_indata.gyro_x},{imu_indata.gyro_y},{imu_indata.gyro_z}\n""")
 
     if imu_indata.is_completed():
         imu_filename = f"""./data/{filename}_{file_index}.csv"""
         if imu_indata.is_moving():
             is_movement_detected = True
             with open(imu_filename, "a") as f:
-                f.write(f"""{time},{ACTION_NUM},{imu_indata.acc_x},{imu_indata.acc_y},{imu_indata.acc_z},{imu_indata.gyro_x},{imu_indata.gyro_y},{imu_indata.gyro_z}\n""")
+                f.write(f"""{imu_indata.timestamp},{ACTION_NUM},{imu_indata.acc_x},{imu_indata.acc_y},{imu_indata.acc_z},{imu_indata.gyro_x},{imu_indata.gyro_y},{imu_indata.gyro_z}\n""")
                 f.close()
         else:
             if is_movement_detected:
@@ -234,6 +248,7 @@ def writeToFile(filename, indata, time):
 
 
 def reorderData(data):
+    '''
     #|01|01|01|67452301|67452301|67452301|01|01|01|01|01|
     tempdata = data[3:15]
     data[3] = tempdata[3]
@@ -248,14 +263,34 @@ def reorderData(data):
     data[12] = tempdata[10]
     data[13] = tempdata[9]
     data[14] = tempdata[8]
+    '''
 
+    # |01|01|01|67452301|2301|2301|2301|2301|2301|2301|01|
+    tempdata = data[3:19]
+    data[3] = tempdata[3]
+    data[4] = tempdata[2]
+    data[5] = tempdata[1]
+    data[6] = tempdata[0]
+    data[7] = tempdata[5]
+    data[8] = tempdata[4]
+    data[9] = tempdata[7]
+    data[10] = tempdata[6]
+    data[11] = tempdata[9]
+    data[12] = tempdata[8]
+    data[13] = tempdata[11]
+    data[14] = tempdata[10]
+    data[15] = tempdata[13]
+    data[16] = tempdata[12]
+    data[17] = tempdata[15]
+    data[18] = tempdata[14]
 
 def verifyValidData(data):
-    if not (data[0] == 4 or data[0] == 5 or data[0] == 6 or data[0] == 22):
+    #if not (data[0] == 4 or data[0] == 5 or data[0] == 6 or data[0] == 22):
+    if not (data[0] == 4 or data[0] == 5 or data[0] == 6):
         return False
     else:
         sum = 0
-        for x in range(18):
+        for x in range(19):
             try:
                 sum ^= int.from_bytes(data[x], 'big')
             except TypeError:
@@ -265,11 +300,13 @@ def verifyValidData(data):
             if sum == int.from_bytes(data[19], 'big'):
                 return True
             else:
+                print("WRONG CHECKSUM")
                 return False
         except TypeError:
             if sum == data[19]:
                 return True
             else:
+                print("WRONG CHECKSUM")
                 return False
 
 
