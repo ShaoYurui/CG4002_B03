@@ -5,12 +5,13 @@ import time
 
 #for debugging purpose
 need_elapsed_time = True
-need_n_packet_received = True
-need_n_packet_fragmented = True
+need_n_packet_received = False
+need_n_packet_fragmented = False
 need_n_packet_loss = False
 need_n_corrupt = False
 need_better_display = False
 need_write_to_file = True
+ACTION_NUM = 1
 
 if need_better_display:
     import curses
@@ -24,12 +25,12 @@ NAK = b'\x4E'
 REQUEST_H = b'\x48'
 ACK_H = b'\x21\x22\x23\x24\x25\x26\x27\x28\x29\x30\x31\x32\x33\x34\x35\x36\x37\x38\x39\x40'
 
-nBeetle = 3
+nBeetle = 1
 
 mac = list()
-mac.append('80:30:dc:d9:1f:93') # gun
+#mac.append('80:30:dc:d9:1f:93') # gun
 #mac.append('80:30:dc:d9:23:27') # vest
-mac.append('34:15:13:22:a1:37') # vest
+#mac.append('34:15:13:22:a1:37') # vest
 mac.append('80:30:dc:e9:1c:74') # imu
 ##mac.append('34:14:b5:51:d9:04') # temp imu
 
@@ -96,15 +97,15 @@ class CommunicationDelegate(btle.DefaultDelegate):
             else:
                 reorderData(indata)
                 if not verifyValidData(indata):
-                    if not need_better_display:
-                        print("Device[{id}] received invalid data".format(id=self.pid))
+                    #if not need_better_display:
+                    #    print("Device[{id}] received invalid data".format(id=self.pid))
                     if need_n_corrupt:
                         d[self.pid].error_count += 1
                     if need_n_packet_fragmented:
                         d[self.pid].n_fragment += 1
                 else:
                     if need_write_to_file:
-                        writeToFile("./imu_data", indata)
+                        writeToFile("imu_data", indata, (time.time()-d[self.pid].start_time))
                     if need_n_packet_loss:
                         if d[self.pid].prev_msg_id == -1:
                             d[self.pid].prev_msg_id = indata[1]
@@ -128,8 +129,8 @@ class CommunicationDelegate(btle.DefaultDelegate):
                 if need_better_display:
                     stdscr.addstr((self.pid*info_row), 0, "Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
                     stdscr.refresh()
-                else:
-                    print("Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
+                #else:
+                #    print("Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
 
 
                 if need_n_packet_received:
@@ -166,115 +167,13 @@ class CommunicationDelegate(btle.DefaultDelegate):
                         #stdscr.addstr((self.pid*info_row+5), 0, "Elapsed time: {time}".format(time=time.time()-d[self.pid].start_time))
                         stdscr.addstr((self.pid*info_row+3), 0, "Elapsed time: {time}".format(time=time.time()-d[self.pid].start_time))
                         stdscr.refresh()
-                    else:
-                        print("Elapsed time: {time}".format(time=time.time()-d[self.pid].start_time))
+                    #else:
+                    #    print("Elapsed time: {time}".format(time=time.time()-d[self.pid].start_time))
 
                 if not self.pid == 2: #no ack for imu
                     d[self.pid].ch.write(ACK)
 
-            '''
-            if d[self.pid].handshake_done == 0:
-                if indata == ACK_H:
-                    if need_better_display:
-                        stdscr.addstr((self.pid*info_row), 0, "Device[{id}] handshake ACK received".format(id=self.pid))
-                        stdscr.refresh()
-                    else:
-                        print("Device[{id}] handshake ACK received".format(id=self.pid))
-                    d[self.pid].handshake_done = 1
-                    #d[self.pid].ch.write(ACK)
-                    if not self.pid == 2:  # no ack for imu
-                        d[self.pid].ch.write(ACK)
-
-                    if need_elapsed_time:
-                        d[self.pid].start_time = time.time()
-
-                else:
-                    if need_better_display:
-                        stdscr.addstr((self.pid*info_row), 0, "Device[{id}] received something instead of handshake ACK: {dat}".format(id=self.pid, dat=indata.hex()))
-                        stdscr.refresh()
-                    else:
-                        print("Device[{id}] received something instead of handshake ACK: {dat}".format(id=self.pid, dat=indata.hex()))
-                    d[self.pid].peripheral.disconnect()
-                    d[self.pid].connection = 0
-                    d[self.pid].handshake_start = 0
-                    d[self.pid].handshake_done = 0
-            else:
-                if not verifyValidData(indata):
-                    if not need_better_display:
-                        print("Device[{id}] received invalid data".format(id=self.pid))
-                    if need_n_corrupt:
-                        d[self.pid].error_count += 1
-                    if need_n_packet_fragmented:
-                        d[self.pid].n_fragment += 1
-                else:
-                    if need_n_packet_loss:
-                        if d[self.pid].prev_msg_id == -1:
-                            d[self.pid].prev_msg_id = indata[1]
-                        else:
-                            if indata[0] == 4 or indata[0] == 5:
-                                if indata[1] == d[self.pid].prev_msg_id:
-                                    d[self.pid].n_packet_loss += 1
-                            elif indata[0] == 6:
-                                if indata[1] < d[self.pid].prev_msg_id:
-                                    d[self.pid].n_packet_loss += (indata[1] + 10) - d[self.pid].prev_msg_id - 1
-                                else:
-                                    d[self.pid].n_packet_loss += abs(indata[1] - d[self.pid].prev_msg_id - 1)
-                            d[self.pid].prev_msg_id = indata[1]
-
-                if need_n_packet_received:
-                    d[self.pid].n_packet_received += 1
-
-                if need_n_packet_fragmented:
-                    d[self.pid].n_time_sent += 1
-
-                if need_better_display:
-                    stdscr.addstr((self.pid*info_row), 0, "Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
-                    stdscr.refresh()
-                else:
-                    print("Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
-
-
-                if need_n_packet_received:
-                    if need_better_display:
-                        stdscr.addstr((self.pid * info_row + 1), 0, "Device[{id}] have received {n} packets".format(id=self.pid, n=d[self.pid].n_packet_received))
-                        stdscr.refresh()
-                    else:
-                        print("Device[{id}] have received {n} packets".format(id=self.pid, n=d[self.pid].n_packet_received))
-
-                if need_n_corrupt:
-                    if need_better_display:
-                        stdscr.addstr((self.pid*info_row+2), 0, "Device[{id}] have received {n} corrupted packets".format(id=self.pid, n=d[self.pid].error_count))
-                        stdscr.refresh()
-                    else:
-                        print("Device[{id}] have received {n} corrupted packets".format(id=self.pid, n=d[self.pid].error_count))
-
-                if need_n_packet_fragmented:
-                    if need_better_display:
-                        #stdscr.addstr((self.pid*info_row+3), 0, "Device[{id}] have detected {n} fragmented packets".format(id=self.pid, n=d[self.pid].n_time_received-d[self.pid].n_time_sent+d[self.pid].n_fragment))
-                        stdscr.addstr((self.pid*info_row+2), 0, "Device[{id}] have detected {n} fragmented packets".format(id=self.pid, n=d[self.pid].n_time_received-d[self.pid].n_time_sent+d[self.pid].n_fragment))
-                        stdscr.refresh()
-                    else:
-                        print("Device[{id}] have detected {n} fragmented packets".format(id=self.pid, n=d[self.pid].n_time_received-d[self.pid].n_time_sent+d[self.pid].n_fragment))
-
-                if need_n_packet_loss:
-                    if need_better_display:
-                        stdscr.addstr((self.pid*info_row+4), 0, "Device[{id}] have {n} packets loss".format(id=self.pid, n=d[self.pid].n_packet_loss))
-                        stdscr.refresh()
-                    else:
-                        print("Device[{id}] have {n} packets loss".format(id=self.pid, n=d[self.pid].n_packet_loss))
-
-                if need_elapsed_time:
-                    if need_better_display:
-                        #stdscr.addstr((self.pid*info_row+5), 0, "Elapsed time: {time}".format(time=time.time()-d[self.pid].start_time))
-                        stdscr.addstr((self.pid*info_row+3), 0, "Elapsed time: {time}".format(time=time.time()-d[self.pid].start_time))
-                        stdscr.refresh()
-                    else:
-                        print("Elapsed time: {time}".format(time=time.time()-d[self.pid].start_time))
-
-                if not self.pid == 2: #no ack for imu
-                    d[self.pid].ch.write(ACK)
-            '''
-
+            
 
 class ImuData:
     def __init__(self, msg_id):
@@ -306,7 +205,7 @@ is_movement_detected = False
 imu_indata = ImuData(-1)
 
 
-def writeToFile(filename, indata):
+def writeToFile(filename, indata, time):
     global imu_indata, file_index, is_movement_detected
     if imu_indata.id != indata[1]:
         imu_indata = ImuData(indata[1])
@@ -321,15 +220,16 @@ def writeToFile(filename, indata):
         imu_indata.gyro_z = struct.unpack('>f', indata[11:15])[0]
 
     if imu_indata.is_completed():
-        imu_filename = f"""{filename}_{file_index}"""
+        imu_filename = f"""./data/{filename}_{file_index}.csv"""
         if imu_indata.is_moving():
             is_movement_detected = True
             with open(imu_filename, "a") as f:
-                f.write(f"""{imu_indata.acc_x},{imu_indata.acc_y},{imu_indata.acc_z},{imu_indata.gyro_x},{imu_indata.gyro_y},{imu_indata.gyro_z}""")
+                f.write(f"""{time},{ACTION_NUM},{imu_indata.acc_x},{imu_indata.acc_y},{imu_indata.acc_z},{imu_indata.gyro_x},{imu_indata.gyro_y},{imu_indata.gyro_z}\n""")
                 f.close()
         else:
             if is_movement_detected:
                 file_index = file_index + 1
+                print(f"""./data/{filename}_{file_index}.csv""")
             is_movement_detected = False
 
 
@@ -409,30 +309,6 @@ def handleBeetle(i):
 
     while True:
         try:
-            '''
-            if need_n_corrupt:
-                if d[i].error_count >= 5:
-                    print("Device[%d] have received more than 5 corrupted packets, restarting" % i)
-                    d[i].peripheral.disconnect()
-                    d[i].svc = 0
-                    d[i].ch = 0
-                    d[i].setup = 0
-                    d[i].connection = 0
-                    d[i].handshake_start = 0
-                    d[i].handshake_done = 0
-                    d[i].data = bytearray(b'')
-                    d[i].error_count = 0
-                    if need_elapsed_time:
-                        self.start_time = 0
-                    if need_n_packet_received:
-                        self.n_packet_received = 0
-                    if need_n_packet_fragmented:
-                        self.n_time_received = -1  # don't count first packet (handshake ack)
-                        self.n_time_sent = 0
-                    if need_n_packet_loss:
-                        self.n_packet_loss = 0
-                        self.prev_msg_id = -1
-            '''
             if d[i].setup == 0: #check setup
                 if need_better_display:
                     stdscr.addstr((i*info_row), 0, "Try setting up device[{id}] again".format(id=i))
@@ -528,14 +404,14 @@ def handleBeetle(i):
                         print("Device[{id}] disconnected".format(id=i))
                     d[i].connection = 0
             else:  # normal communication
-                if need_better_display:
-                    '''
-                    stdscr.addstr(i, 0, "Device[{id}] waiting...".format(id=i))
-                    stdscr.clrtoeol()
-                    stdscr.refresh()
-                    '''
-                else:
-                    print("Device[{id}] waiting...".format(id=i))
+                #if need_better_display:
+                #    '''
+                #    stdscr.addstr(i, 0, "Device[{id}] waiting...".format(id=i))
+                #    stdscr.clrtoeol()
+                #    stdscr.refresh()
+                #    '''
+                #else:
+                    #print("Device[{id}] waiting...".format(id=i))
                 try:
                     d[i].peripheral.waitForNotifications(1.0)
                 except btle.BTLEDisconnectError:
