@@ -10,8 +10,8 @@
 #define CALIBRATE_SAMPLE_NUM  200
 #define ACCE_SCALE_FACTOR     1
 #define GYRO_SCALE_FACTOR     1
-#define IMU_ACCE_THRESHOLD    (5000/ACCE_SCALE_FACTOR)
-#define IMU_GYRO_THRESHOLD    (5000/ACCE_SCALE_FACTOR)
+#define IMU_ACCE_THRESHOLD    (0/ACCE_SCALE_FACTOR)
+#define IMU_GYRO_THRESHOLD    (0/ACCE_SCALE_FACTOR)
 /////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// HANDSHAKE PRE_COMPILE DEFINES ////////////////////////////////
 #define IMU_DATA               0x06
@@ -62,7 +62,7 @@ void loop()
   { 
     read_IMU_data();
     preprocess_IMU_data();
-    float dummuy = 0;
+
     if(!is_movement_detected())
     {
       accelerometer_x_processed = 0;
@@ -74,21 +74,33 @@ void loop()
     }
 
     imu_time = millis();
+    
+    uint8_t package[20];
+    package[19] = (uint8_t) getChecksum();
+    package[18] = ((uint8_t *) &gyro_z_processed) [0];
+    package[17] = ((uint8_t *) &gyro_z_processed) [1];
+    package[16] = ((uint8_t *) &gyro_y_processed) [0];
+    package[15] = ((uint8_t *) &gyro_y_processed) [1];
+    package[14] = ((uint8_t *) &gyro_x_processed) [0];
+    package[13] = ((uint8_t *) &gyro_x_processed) [1];
+    package[12] = ((uint8_t *) &accelerometer_z_processed) [0];
+    package[11] = ((uint8_t *) &accelerometer_z_processed) [1];
+    package[10] = ((uint8_t *) &accelerometer_y_processed) [0];
+    package[9] = ((uint8_t *) &accelerometer_y_processed) [1];
+    package[8] = ((uint8_t *) &accelerometer_x_processed) [0];
+    package[7] = ((uint8_t *) &accelerometer_x_processed) [1];
+    package[6] = ((uint8_t *) &imu_time) [0];
+    package[5] = ((uint8_t *) &imu_time) [1];
+    package[4] = ((uint8_t *) &imu_time) [2];
+    package[3] = ((uint8_t *) &imu_time) [3];
+    package[2] = (uint8_t) PLAYER_ID;
+    package[1] = (uint8_t) message_id;
+    package[0] = (uint8_t) IMU_DATA;
 
-    Serial.write (IMU_DATA);                                  //1
-    Serial.write (message_id);                                //1
-    Serial.write (PLAYER_ID);                                 //1
-    Serial.write (imu_time);                                  //4
-    Serial.write (accelerometer_x_processed);                 //2
-    Serial.write (accelerometer_y_processed);                 //2
-    Serial.write (accelerometer_z_processed);                 //2
-    Serial.write (gyro_x_processed);                          //2
-    Serial.write (gyro_y_processed);                          //2
-    Serial.write (gyro_z_processed);                          //2
-    Serial.write (getChecksum());                             //1
-
+    delay(10);   
+    Serial.write (package, 20);                               //1
     message_id++;
-    delay(LOOP_TIME);
+    delay(10);
   }
   
   
@@ -218,33 +230,41 @@ void printHandshakeAck() {
 
 uint8_t getChecksum() {  
   uint8_t sum = 0;
+  uint8_t* data;
     
   sum ^= IMU_DATA;
   sum ^= message_id;
   sum ^= PLAYER_ID;
 
-  sum ^= imu_time & 0b11111111;
-  sum ^= (imu_time >> 8) & 0b11111111;
-  sum ^= (imu_time >> 16) & 0b11111111;
-  sum ^= (imu_time >> 24) & 0b11111111;
+  data = ((uint8_t*) &imu_time);
+  sum ^= data[0];
+  sum ^= data[1];
+  sum ^= data[2];
+  sum ^= data[3];
 
-  sum ^= accelerometer_x_processed & 0b11111111;
-  sum ^= (accelerometer_x_processed >> 8) & 0b11111111;
+  data = ((uint8_t*) &accelerometer_x_processed);
+  sum ^= data[0];
+  sum ^= data[1];
 
-  sum ^= accelerometer_y_processed & 0b11111111;
-  sum ^= (accelerometer_y_processed >> 8) & 0b11111111;
+  data = ((uint8_t*) &accelerometer_y_processed);
+  sum ^= data[0];
+  sum ^= data[1];
 
-  sum ^= accelerometer_z_processed & 0b11111111;
-  sum ^= (accelerometer_z_processed >> 8) & 0b11111111;
+  data = ((uint8_t*) &accelerometer_z_processed);
+  sum ^= data[0];
+  sum ^= data[1];
 
-  sum ^= gyro_x_processed & 0b11111111;
-  sum ^= (gyro_x_processed >> 8) & 0b11111111;
+  data = ((uint8_t*) &gyro_x_processed);
+  sum ^= data[0];
+  sum ^= data[1];
 
-  sum ^= gyro_y_processed & 0b11111111;
-  sum ^= (gyro_y_processed >> 8) & 0b11111111;
+  data = ((uint8_t*) &gyro_y_processed);
+  sum ^= data[0];
+  sum ^= data[1];
 
-  sum ^= gyro_z_processed & 0b11111111;
-  sum ^= (gyro_z_processed >> 8) & 0b11111111;
+  data = ((uint8_t*) &gyro_z_processed);
+  sum ^= data[0];
+  sum ^= data[1];
 
   return sum;
 }
