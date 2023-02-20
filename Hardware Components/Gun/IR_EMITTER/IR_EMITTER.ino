@@ -6,10 +6,13 @@
 
 #define PLAY1_IR_SIGNAL 0x96
 #define PLAY1_IR_ADDRES 0x1103
-#define BAUD_RATE 9600
+#define BAUD_RATE 115200
+
+int ammo_count = 6;
 
 void setup()  
 {  
+  Serial.begin(BAUD_RATE);
   pinMode(BUTTON_PIN, INPUT);
   pinMode(BUZZER_PIN, OUTPUT);
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), button_isr, FALLING);
@@ -33,17 +36,34 @@ void enable_isr()
 
 void sound_space_gun()
 {
-  for(int i=200;i<900;i++)
+  if (ammo_count <= 0)
+  {
+    ammo_count = 0;
+    return ;
+  }
+  for (int i=0; i<(ammo_count+1)/2-1; i++)
+  {
+    for(int j=200; j<500; j++)
+    {
+      digitalWrite(BUZZER_PIN, HIGH);
+      delayMicroseconds(j);
+      digitalWrite(BUZZER_PIN, LOW);
+      delayMicroseconds(j);
+    }
+  }
+  for(int j=200; j<900; j++)
   {
     digitalWrite(BUZZER_PIN, HIGH);
-    delayMicroseconds(i);
+    delayMicroseconds(j);
     digitalWrite(BUZZER_PIN, LOW);
-    delayMicroseconds(i);
+    delayMicroseconds(j);
   }
+  ammo_count = ammo_count - 1;
 }
 
 void button_isr()
 {
+  
   disable_isr();
   shoot_IR();
   sound_space_gun();

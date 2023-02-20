@@ -7,9 +7,25 @@
 #define PLAYER1_IR_SIGNAL_COMMAND 0x96
 #define BAUD_RATE 9600
 
-void blinkLed() {
+int health_pt = 100;
+
+void blinkLed(int time) 
+{
   digitalWrite(LED_PIN, HIGH);
-  delay(1000);
+  delay(500 - 5 * time);
+  digitalWrite(LED_PIN, LOW);
+  delay(time * 5);
+}
+
+void flashLED()
+{
+  for(int i=0;i<5;i++)
+  {
+    digitalWrite(LED_PIN, LOW);
+    delay(50);
+    digitalWrite(LED_PIN, HIGH);
+    delay(50);
+  }
   digitalWrite(LED_PIN, LOW);
 }
 
@@ -29,9 +45,12 @@ void loop()
     if((IrReceiver.decodedIRData.address == PLAYER1_IR_SIGNAL_ADDRESS) && 
       (IrReceiver.decodedIRData.command == PLAYER1_IR_SIGNAL_COMMAND))
     {
-       blinkLed();
+      flashLED();
+      health_pt -= 10; 
     }
     IrReceiver.resume(); // Important, enables to receive the next IR signal
   }  
+
+  blinkLed(100-health_pt);
 }  
 
