@@ -14,18 +14,16 @@
 #define IMU_GYRO_THRESHOLD    (5000/ACCE_SCALE_FACTOR)
 /////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// HANDSHAKE PRE_COMPILE DEFINES ////////////////////////////////
-#define IMU_ACC               0x06
-#define IMU_GYRO              0x16
-#define PLAYER_ID             0x00 //0x00 or 0x01
-#define PAD_BYTE              0x00
-int message_id;
-int checksum_acc, checksum_gyro;
-unsigned long time ;
-
-#define REQUEST_H             0x48
-uint8_t ack_h[20] = {0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x40};
+#define IMU_DATA               0x06
+#define PLAYER_ID              0x00 //0x00 or 0x01
+#define PAD_BYTE               0x00
+#define REQUEST_H              0x48
+/////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////// HANDSHAKE PRE_COMPILE VARIABELS //////////////////////////////
+int message_id = 0;
+uint8_t ack_h[20] = {0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x30, 
+                    0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x40};
 bool handshake_done = false;
-
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////// IMU RAW DATA VARIABLES //////////////////////////////////////
 int16_t accelerometer_x, accelerometer_y, accelerometer_z; 
@@ -38,7 +36,8 @@ long gyro_x_cal, gyro_y_cal, gyro_z_cal;
 /////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// IMU PREPROCESS VARIABLES /////////////////////////////////////
 int16_t accelerometer_x_processed, accelerometer_y_processed, accelerometer_z_processed; 
-int16_t gyro_x_processed, gyro_y_processed, gyro_z_processed; 
+int16_t gyro_x_processed, gyro_y_processed, gyro_z_processed;
+unsigned long imu_time ; 
 /////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// MAIN FUNCTION/////////////////////////////////////////////////
 void setup() 
@@ -73,22 +72,20 @@ void loop()
       gyro_y_processed = 0;
       gyro_z_processed = 0;
     }
-    time = millis();
 
-    getChecksum(IMU_ACC);
-    getChecksum(IMU_GYRO); 
-    
-    Serial.write (IMU_ACC);                                   //1
+    imu_time = millis();
+
+    Serial.write (IMU_DATA);                                  //1
     Serial.write (message_id);                                //1
     Serial.write (PLAYER_ID);                                 //1
-    Serial.write (time);                                       //4
+    Serial.write (imu_time);                                  //4
     Serial.write (accelerometer_x_processed);                 //2
     Serial.write (accelerometer_y_processed);                 //2
     Serial.write (accelerometer_z_processed);                 //2
     Serial.write (gyro_x_processed);                          //2
     Serial.write (gyro_y_processed);                          //2
     Serial.write (gyro_z_processed);                          //2
-    Serial.write (checksum_acc);                              //1
+    Serial.write (getChecksum());                             //1
 
     message_id++;
     delay(LOOP_TIME);
@@ -219,58 +216,36 @@ void printHandshakeAck() {
   }
 }
 
-void getChecksum(uint8_t message_type) {  
+uint8_t getChecksum() {  
   uint8_t sum = 0;
-  float temp;
-  uint8_t* data;
     
-  sum ^= message_type;
+  sum ^= IMU_DATA;
   sum ^= message_id;
   sum ^= PLAYER_ID;
-  if (message_type == IMU_ACC) {
-    temp = accelerometer_x_processed;
-    data = ((uint8_t*) &temp);
-    sum ^= data[0];
-    sum ^= data[1];
-    sum ^= data[2];
-    sum ^= data[3];
-    temp = accelerometer_y_processed;
-    data = ((uint8_t*) &temp);
-    sum ^= data[0];
-    sum ^= data[1];
-    sum ^= data[2];
-    sum ^= data[3];
-    temp = accelerometer_z_processed;
-    data = ((uint8_t*) &temp);
-    sum ^= data[0];
-    sum ^= data[1];
-    sum ^= data[2];
-    sum ^= data[3];
 
-    sum ^= time;
+  sum ^= imu_time & 0b11111111;
+  sum ^= (imu_time >> 8) & 0b11111111;
+  sum ^= (imu_time >> 16) & 0b11111111;
+  sum ^= (imu_time >> 24) & 0b11111111;
 
-    checksum_acc = sum;
-  } else if (message_type == IMU_GYRO) {
-    temp = gyro_x_processed;
-    data = ((uint8_t*) &temp);
-    sum ^= data[0];
-    sum ^= data[1];
-    sum ^= data[2];
-    sum ^= data[3];
-    temp = gyro_y_processed;
-    data = ((uint8_t*) &temp);
-    sum ^= data[0];
-    sum ^= data[1];
-    sum ^= data[2];
-    sum ^= data[3];
-    temp = gyro_z_processed;
-    data = ((uint8_t*) &temp);
-    sum ^= data[0];
-    sum ^= data[1];
-    sum ^= data[2];
-    sum ^= data[3];
+  sum ^= accelerometer_x_processed & 0b11111111;
+  sum ^= (accelerometer_x_processed >> 8) & 0b11111111;
 
-    checksum_gyro = sum;
-  }  
+  sum ^= accelerometer_y_processed & 0b11111111;
+  sum ^= (accelerometer_y_processed >> 8) & 0b11111111;
+
+  sum ^= accelerometer_z_processed & 0b11111111;
+  sum ^= (accelerometer_z_processed >> 8) & 0b11111111;
+
+  sum ^= gyro_x_processed & 0b11111111;
+  sum ^= (gyro_x_processed >> 8) & 0b11111111;
+
+  sum ^= gyro_y_processed & 0b11111111;
+  sum ^= (gyro_y_processed >> 8) & 0b11111111;
+
+  sum ^= gyro_z_processed & 0b11111111;
+  sum ^= (gyro_z_processed >> 8) & 0b11111111;
+
+  return sum;
 }
 /////////////////////////////////////////////////////////////////////////////////////////////
