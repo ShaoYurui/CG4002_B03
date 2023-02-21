@@ -40,7 +40,6 @@ mac = list()
 #mac.append('34:15:13:22:a1:37') # vest
 #mac.append('80:30:dc:e9:1c:74') # imu X
 mac.append('80:30:dc:e9:08:d7') # imu
-##mac.append('34:14:b5:51:d9:04') # temp imu
 
 d = list() #devices list
 
@@ -80,13 +79,15 @@ class CommunicationDelegate(btle.DefaultDelegate):
         btle.DefaultDelegate.__init__(self)
     def handleNotification(self, cHandle, data):
         d[self.pid].data += data
+        #d[self.pid].data = data
 
         if need_n_packet_fragmented:
             d[self.pid].n_time_received += 1
 
-        if len(d[self.pid].data) >= 20:
+        #if len(d[self.pid].data) >= 20:
+        if len(d[self.pid].data) >= 40:
             indata = d[self.pid].data[0:20]
-            d[self.pid].data = d[self.pid].data[20:]
+            #d[self.pid].data = d[self.pid].data[20:]
 
             d[self.pid].handshake_done = 1
             if indata == ACK_H:
@@ -102,17 +103,25 @@ class CommunicationDelegate(btle.DefaultDelegate):
                 if need_elapsed_time:
                     if d[self.pid].start_time == 0:
                         d[self.pid].start_time = time.time()
+
+                d[self.pid].data = d[self.pid].data[20:]  ###
             else:
-                reorderData(indata)
-                if not verifyValidData(indata):
+                #reorderData(indata)
+                #if not verifyValidData(indata):
+                if not verifyValidData(self.pid):
+                    #indata = d[self.pid].data[0:20]
                     if not need_better_display:
                         print("Device[{id}] received invalid data".format(id=self.pid))
                         print("Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
+                        indata = d[self.pid].data[0:20]
+                        print("Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
+                        print("Elapsed time: {time}".format(time=time.time() - d[self.pid].start_time))
                     if need_n_corrupt:
                         d[self.pid].error_count += 1
                     if need_n_packet_fragmented:
                         d[self.pid].n_fragment += 1
                 else:
+                    indata = d[self.pid].data[0:20]
                     if need_write_to_file:
                         writeToFile(indata)
                         
@@ -130,6 +139,8 @@ class CommunicationDelegate(btle.DefaultDelegate):
                                     d[self.pid].n_packet_loss += abs(indata[1] - d[self.pid].prev_msg_id - 1)
                             d[self.pid].prev_msg_id = indata[1]
 
+                    d[self.pid].data = d[self.pid].data[20:]  ###
+
                 if need_n_packet_received:
                     d[self.pid].n_packet_received += 1
 
@@ -140,7 +151,7 @@ class CommunicationDelegate(btle.DefaultDelegate):
                     stdscr.addstr((self.pid*info_row), 0, "Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
                     stdscr.refresh()
                 #else:
-                #    print("Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
+                    #print("Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
 
 
                 if need_n_packet_received:
@@ -182,6 +193,8 @@ class CommunicationDelegate(btle.DefaultDelegate):
 
                 #if not self.pid == 2: #no ack for imu
                 #    d[self.pid].ch.write(ACK)
+
+                #d[self.pid].data = d[self.pid].data[20:]  ###
 
             
 
@@ -253,23 +266,6 @@ def writeToFile(indata):
 
 
 def reorderData(data):
-    '''
-    #|01|01|01|67452301|67452301|67452301|01|01|01|01|01|
-    tempdata = data[3:15]
-    data[3] = tempdata[3]
-    data[4] = tempdata[2]
-    data[5] = tempdata[1]
-    data[6] = tempdata[0]
-    data[7] = tempdata[7]
-    data[8] = tempdata[6]
-    data[9] = tempdata[5]
-    data[10] = tempdata[4]
-    data[11] = tempdata[11]
-    data[12] = tempdata[10]
-    data[13] = tempdata[9]
-    data[14] = tempdata[8]
-    '''
-
     # |01|01|01|67452301|2301|2301|2301|2301|2301|2301|01|
     tempdata = data[3:19]
     data[3] = tempdata[3]
@@ -289,6 +285,116 @@ def reorderData(data):
     data[17] = tempdata[15]
     data[18] = tempdata[14]
 
+def verifyValidData(id):
+    #check & move to correct header
+    header_index = 0
+    if not ((d[id].data[header_index] == 4 or d[id].data[header_index] == 5 or d[id].data[header_index] == 6) and (d[id].data[header_index+2] == 1 or d[id].data[header_index+2] == 2)):
+        #print("Header not correct: {header}".format(header=d[id].data[header_index]))
+        for x in range(len(d[id].data)):
+            #print("Index {index}: {databyte}, {databyte2}".format(index=x, databyte=d[id].data[x], databyte2=d[id].data[x+2]))
+            if d[id].data[x] == 6 and (d[id].data[x+2] == 1 or d[id].data[x+2] == 2):
+                header_index = x
+                d[id].data = d[id].data[header_index:]
+                #print("Found header at {index}".format(index=x))
+                break
+        if len(d[id].data) < 20:
+            return False
+
+    #verify checksum, return True if correct
+    sum = 0
+    #print("Data: {arrayobyte}".format(arrayobyte=d[id].data[0:20]))
+    for x in range(19):
+        try:
+            sum ^= int.from_bytes(d[id].data[x], 'big')
+        except TypeError:
+            sum ^= d[id].data[x]
+    try:
+        if sum == int.from_bytes(d[id].data[19], 'big'):
+            return True
+    except TypeError:
+        if sum == d[id].data[19]:
+            return True
+    #print("Calculated checksum: {calcs}".format(calcs=sum))
+
+    #(if checksum wrong) move to next header, return False
+    #print("Try to find another header")
+    for x in range(1, len(d[id].data)):
+        #print("Index {index}: {databyte}, {databyte2}".format(index=x, databyte=d[id].data[x], databyte2=d[id].data[x+2]))
+        if d[id].data[x] == 6 and (d[id].data[x + 2] == 1 or d[id].data[x + 2] == 2):
+            #print("Found another header at {index}".format(index=x))
+            header_index = x
+            d[id].data = d[id].data[header_index:]
+            #return False #return now, will handle data in next function call
+            break
+    if len(d[id].data) < 20:
+        return False
+
+    #check new checksum
+    sum = 0
+    for x in range(19):
+        try:
+            sum ^= int.from_bytes(d[id].data[x], 'big')
+        except TypeError:
+            sum ^= d[id].data[x]
+    try:
+        if sum == int.from_bytes(d[id].data[19], 'big'):
+            return True
+    except TypeError:
+        if sum == d[id].data[19]:
+            return True
+    return False
+
+    '''    
+    message_type_index = 0
+    if (d[id].data[message_type_index] == 4 or d[id].data[message_type_index] == 5 or d[id].data[message_type_index] == 6) and 0 <= d[id].data[message_type_index+1] <= 255:
+        sum = 0
+        for x in range(19):
+            try:
+                sum ^= int.from_bytes(d[id].data[x], 'big')
+            except TypeError:
+                sum ^= d[id].data[x]
+        try:
+            if sum == int.from_bytes(d[id].data[19], 'big'):
+                return True
+            else:
+                return False
+        except TypeError:
+            if sum == d[id].data[19]:
+                return True
+            else:
+                return False
+    #if not (d[id].data[message_type_index] == 4 or d[id].data[message_type_index] == 5 or d[id].data[message_type_index] == 6):
+    else:
+        for x in range(len(d[id].data)):
+            if d[id].data[x] == 6 and 0 <= d[id].data[x + 1] <= 255:
+                message_type_index = x
+                d[id].data = d[id].data[message_type_index:]
+
+                if len(d[id].data < 20):
+                    return False
+
+                sum = 0
+                for y in range(19):
+                    try:
+                        sum ^= int.from_bytes(d[id].data[y], 'big')
+                    except TypeError:
+                        sum ^= d[id].data[y]
+                try:
+                    if sum == int.from_bytes(d[id].data[19], 'big'):
+                        return True
+                    else:
+                        return False
+                except TypeError:
+                    if sum == d[id].data[19]:
+                        return True
+                    else:
+                        return False
+
+        return false
+    '''
+
+
+'''
 def verifyValidData(data):
     #if not (data[0] == 4 or data[0] == 5 or data[0] == 6 or data[0] == 22):
     if not (data[0] == 4 or data[0] == 5 or data[0] == 6):
@@ -313,6 +419,7 @@ def verifyValidData(data):
             else:
                 print("WRONG CHECKSUM")
                 return False
+'''
 
 
 def handleBeetle(i):
