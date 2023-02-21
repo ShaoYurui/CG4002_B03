@@ -15,7 +15,7 @@
 /////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// HANDSHAKE PRE_COMPILE DEFINES ////////////////////////////////
 #define IMU_DATA               0x06
-#define PLAYER_ID              0x01 //0x01 or 0x02
+#define PLAYER_ID              0x00 //0x00 or 0x01
 #define PAD_BYTE               0x00
 #define REQUEST_H              0x48
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -97,10 +97,9 @@ void loop()
     package[1] = (uint8_t) message_id;
     package[0] = (uint8_t) IMU_DATA;
 
-    delay(10);   
     Serial.write (package, 20);                               //1
     message_id++;
-    delay(10);
+    delay(LOOP_TIME);
   }
   
   
