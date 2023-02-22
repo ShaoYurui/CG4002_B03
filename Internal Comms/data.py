@@ -1,4 +1,5 @@
 from bluepy import btle
+from pathlib import Path
 
 import threading
 import time
@@ -11,8 +12,11 @@ need_n_packet_loss = False
 need_n_corrupt = False
 need_better_display = False
 need_write_to_file = True
-ACTION_NUM = 1
-
+ACTION_NUM = 4
+# 1 - grenade
+# 2 - reload
+# 3 - shield
+# 4 - log out
 
 file_index = 1
 file_name = "imu_data"
@@ -35,11 +39,12 @@ ACK_H = b'\x21\x22\x23\x24\x25\x26\x27\x28\x29\x30\x31\x32\x33\x34\x35\x36\x37\x
 nBeetle = 1
 
 mac = list()
-#mac.append('80:30:dc:d9:1f:93') # gun
+#mac.append('80:30:dc:d9:1f:93') # gun x
+#mac.append('34:14:b5:51:d9:04') # gun
+#mac.append('34:15:13:22:a1:37') # vest x
 #mac.append('80:30:dc:d9:23:27') # vest
-#mac.append('34:15:13:22:a1:37') # vest
-#mac.append('80:30:dc:e9:1c:74') # imu X
-mac.append('80:30:dc:e9:08:d7') # imu
+mac.append('80:30:dc:e9:1c:74') # imu X
+#mac.append('80:30:dc:e9:08:d7') # imu
 
 d = list() #devices list
 
@@ -209,60 +214,59 @@ class ImuData:
         self.gyro_z = -1
         self.timestamp = -1
 
-    def is_completed(self):
-        if self.acc_x + self.acc_y + self.acc_z == -3:
-            return False
-        if self.gyro_x + self.gyro_y + self.gyro_z == -3:
-            return False
-        return True
 
     def is_moving(self):
         if self.acc_x + self.acc_y + self.acc_z + self.gyro_x + self.gyro_y + self.gyro_z == 0:
             return False
-        if not self.is_completed():
-            raise SystemError
         return True
 
 
-imu_indata = ImuData(-1)
+def get_file_index():
+    global file_name, file_index
+    data_file_path = f"""./data/{file_name}_{file_index}.csv"""
+    path = Path(data_file_path)
+    while(path.is_file()):
+        file_index += 1
+        data_file_path = f"""./data/{file_name}_{file_index}.csv"""
+        path = Path(data_file_path)
+        
 
 def writeToFile(indata):
-    global imu_indata, file_index, is_movement_detected, file_name, file_length
-    if imu_indata.id != indata[1]:
-        imu_indata = ImuData(indata[1])
+    global file_index, is_movement_detected, file_name, file_length
 
+    imu_indata = ImuData(indata[1])
 
-    if indata[0] == 6:
-        imu_indata.timestamp = struct.unpack('>L', indata[3:7])[0]
-        imu_indata.acc_x = struct.unpack('>h', indata[7:9])[0]
-        imu_indata.acc_y = struct.unpack('>h', indata[9:11])[0]
-        imu_indata.acc_z = struct.unpack('>h', indata[11:13])[0]
-        imu_indata.gyro_x = struct.unpack('>h', indata[13:15])[0]
-        imu_indata.gyro_y = struct.unpack('>h', indata[15:17])[0]
-        imu_indata.gyro_z = struct.unpack('>h', indata[17:19])[0]
-        
-    if imu_indata.is_completed():
-        imu_filename = f"""./data/{file_name}_{file_index}.csv"""
-        if imu_indata.is_moving():
-            is_movement_detected = True
-            file_length = file_length + 1
-            with open(imu_filename, "a") as f:
-                f.write(f"""{imu_indata.timestamp},{ACTION_NUM},{imu_indata.acc_x},{imu_indata.acc_y},{imu_indata.acc_z},{imu_indata.gyro_x},{imu_indata.gyro_y},{imu_indata.gyro_z}\n""")
-                f.close()
-'''
-        else:
-            if is_movement_detected:
-                if file_length >= 15:
-                    print(f"""{imu_filename} saved""")
-                    file_index = file_index + 1
-                else:
-                    file_length = 0
-                    with open(imu_filename, "w") as f:
-                        f.write("")
-                        f.close()
+    imu_indata.timestamp = struct.unpack('>L', indata[3:7])[0]
+    imu_indata.acc_x = struct.unpack('>h', indata[7:9])[0]
+    imu_indata.acc_y = struct.unpack('>h', indata[9:11])[0]
+    imu_indata.acc_z = struct.unpack('>h', indata[11:13])[0]
+    imu_indata.gyro_x = struct.unpack('>h', indata[13:15])[0]
+    imu_indata.gyro_y = struct.unpack('>h', indata[15:17])[0]
+    imu_indata.gyro_z = struct.unpack('>h', indata[17:19])[0]
+    
+    #print( f"""{imu_indata.timestamp},{ACTION_NUM},{imu_indata.acc_x},{imu_indata.acc_y},{imu_indata.acc_z},{imu_indata.gyro_x},{imu_indata.gyro_y},{imu_indata.gyro_z}\n""")   
+    
+    imu_filename = f"""./data/{file_name}_{file_index}.csv"""
+    if imu_indata.is_moving():
+        is_movement_detected = True
+        file_length = file_length + 1
+        with open(imu_filename, "a") as f:
+            f.write(f"""{imu_indata.timestamp},{ACTION_NUM},{imu_indata.acc_x},{imu_indata.acc_y},{imu_indata.acc_z},{imu_indata.gyro_x},{imu_indata.gyro_y},{imu_indata.gyro_z}\n""")
+            f.close()
+
+    else:
+        if is_movement_detected:
+            if file_length >= 20:
+                print(f"""{imu_filename} saved""")
+                file_index = file_index + 1
+            else:
                 file_length = 0
-            is_movement_detected = False
-'''
+                with open(imu_filename, "w") as f:
+                    f.write("")
+                    f.close()
+            file_length = 0
+        is_movement_detected = False
+
 
 
 def reorderData(data):
@@ -605,6 +609,7 @@ def handleBeetle(i):
 
 if __name__ == "__main__":
     threads = list()
+    get_file_index()
 
     if need_better_display:
         info_row = 1
