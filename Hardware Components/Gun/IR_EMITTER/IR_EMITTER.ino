@@ -32,8 +32,10 @@ void setup()
 }  
 void loop()  
 {  
-  if (Serial.available()) {
-    if (Serial.read() == REQUEST_H) {
+  if (Serial.available()) 
+  {
+    if (Serial.read() == REQUEST_H) 
+    {
       printHandshakeAck();
       handshake_done = true;
     }
@@ -68,16 +70,37 @@ void sound_reload()
   }
 }
 
+void rand_sound()
+{
+  for(int i=0; i<20; i++)
+  {
+    buzzer_tone(random(200,400));
+  }
+}
+
+void buzzer_tone(int num)
+{
+  for(int i=0; i<10000/num; i++)
+  {
+    digitalWrite(BUZZER_PIN, HIGH);
+    delayMicroseconds(num);
+    digitalWrite(BUZZER_PIN, LOW);
+    delayMicroseconds(num);
+  }
+}
+
 void sound_space_gun()
 {
   if (ammo_count <= 0)
   {
     ammo_count = 0;
+    rand_sound();
     return ;
   }
+  
   for (int i=0; i<(ammo_count+1)/2-1; i++)
   {
-    for(int j=200; j<500; j++)
+    for(int j=1000; j>900; j--)
     {
       digitalWrite(BUZZER_PIN, HIGH);
       delayMicroseconds(j);
@@ -97,17 +120,19 @@ void sound_space_gun()
 
 void button_isr()
 {
-  
   disable_isr();
   shoot_IR();
   send_data();
-  sound_space_gun();  
+  sound_space_gun(); 
   enable_isr();
 }
 
 void shoot_IR()
 {
-  IrSender.sendNEC(PLAY1_IR_ADDRES, PLAY1_IR_SIGNAL, true);  
+  if(ammo_count > 0)
+  {
+    IrSender.sendNEC(PLAY1_IR_ADDRES, PLAY1_IR_SIGNAL, true);  
+  }
 }
 
 void send_data() {
