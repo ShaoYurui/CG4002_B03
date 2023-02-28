@@ -27,6 +27,8 @@ void setup()
   pinMode(BUZZER_PIN, OUTPUT);
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), button_isr, FALLING);
   IrSender.begin(SEND_PIN); // Initializes IR sender
+
+  sound_reload();
 }  
 void loop()  
 {  
@@ -47,6 +49,23 @@ void enable_isr()
 {
   EIFR = 0b00000001;
   EIMSK |= 0b00000001;
+}
+
+void reload()
+{
+  ammo_count = 6;
+  sound_reload();
+}
+
+void sound_reload()
+{
+  for(int j=1000; j>100; j--)
+  {
+    digitalWrite(BUZZER_PIN, HIGH);
+    delayMicroseconds(j);
+    digitalWrite(BUZZER_PIN, LOW);
+    delayMicroseconds(j);
+  }
 }
 
 void sound_space_gun()
