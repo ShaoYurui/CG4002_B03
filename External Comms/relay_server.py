@@ -12,23 +12,59 @@ import base64
 import traceback
 from multiprocessing import Queue
 
+from queue import Empty
+
+# Default Game State
+DEFAULT_GAME_STATE              = {
+                                        "p1": {
+                                            "hp": 100,
+                                            "action": "none",
+                                            "bullets": 6,
+                                            "grenades": 2,
+                                            "shield_time": 10,
+                                            "shield_health": 30,
+                                            "num_deaths": 0,
+                                            "num_shield": 3
+                                        },
+                                        "p2": {
+                                            "hp": 100,
+                                            "action": "none",
+                                            "bullets": 6,
+                                            "grenades": 2,
+                                            "shield_time": 10,
+                                            "shield_health": 30,
+                                            "num_deaths": 0,
+                                            "num_shield": 3
+                                        }
+                                    }
+
 class relay_server(threading.Thread):
 
-    def __init__(self, ip_addr, port_num, accelerometer_data, accelerometer_queue):
+    def __init__(self, ip_addr, port_num, accelerometer_queue, gamestate_queue):
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind((ip_addr, port_num))
         self.connection = None
         self.address = ""
-        self.data = accelerometer_data
+        self.accelerometer_data = None
+        self.gamestate_data = None
         self.accelerometer_queue = accelerometer_queue
+        self.gamestate_queue = gamestate_queue
 
         threading.Thread.__init__(self)
 
     def send_data(self):
         success = True
-        msg = "Data successfully received at {}".format(time.ctime(time.time()))
-        msg_length = str(len(msg))+'_'
+        try:
+            self.gamestate_data = self.gamestate_queue.get_nowait()
+
+            print("Queue has something!")
+            msg = json.dumps(self.gamestate_data)
+            msg_length = str(len(msg))+'_'
+        except Empty:
+            print("Empty Queue!")
+            msg = json.dumps(self.gamestate_data)
+            msg_length = str(len(msg))+'_'
 
         try:
             self.connection.sendall(msg_length.encode("utf-8"))
@@ -36,6 +72,7 @@ class relay_server(threading.Thread):
         except OSError:
             print("connection between relay_server and relay_client lost")
             success = False
+
         return success
 
     def receive_data(self):
@@ -64,18 +101,23 @@ class relay_server(threading.Thread):
             if len(data) == 0:
                 print('no more data from relay_server')
                 self.stop()
-            msg = data.decode("utf8")  # Decode raw bytes to UTF-8
+            
+            msg = json.loads(data.decode("utf8"))
+            self.accelerometer_data = msg
 
-            self.data = msg
-            print(self.accelerometer_queue)
-
-            print("Message received from relay_server: ")
-            print(msg)
+            return
 
         except ConnectionResetError:
             print('Connection Reset')
             self.stop()
 
+        return None
+
+    def send_hardware_AI(self):
+        # 1 = shooting, 2 = shield, 3 = grenade, 4 = reload
+        print("Sending to Hardware AI")
+        print(self.accelerometer_data)
+        self.accelerometer_queue.put(self.accelerometer_data)
         return
 
     def run(self):
@@ -84,30 +126,29 @@ class relay_server(threading.Thread):
         self.connection, self.address = self.socket.accept()
         print("relay_server is now connected to relay_client!")
         while True:
-            self.send_data()
+            # Receives Accelerometer Data From relay_client
             self.receive_data()
-            self.accelerometer_queue.put(self.data)
+            self.send_hardware_AI()
+            # Sends GameState Data To relay_client
+            self.send_data()
             time.sleep(5)
 
-""""
+
 def main():
-    ip_addr = '192.168.95.226'
+    ip_addr = '192.168.95.249'
     port_num = 8079
-    sample_accelerometer_data = {
-        "x": 1.0000,
-        "y": 1.0000,
-        "z": 1.0000
-    }
 
-    sample_accelerometer_data_string = json.dumps(sample_accelerometer_data)
+    accelerometer_queue = Queue()
+    gamestate_queue = Queue()
 
-    current_relayserver = relay_server(ip_addr, port_num, sample_accelerometer_data)
+    gamestate_queue.put(DEFAULT_GAME_STATE)
+
+    current_relayserver = relay_server(ip_addr, port_num, accelerometer_queue, gamestate_queue)
 
     current_relayserver.start()
-
     current_relayserver.join()
 
 
 if __name__ == '__main__':
     main()
-"""
+

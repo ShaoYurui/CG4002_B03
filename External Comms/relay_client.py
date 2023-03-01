@@ -14,19 +14,21 @@ from queue import Queue
 
 class relay_client(threading.Thread):
 
-    def __init__(self, ip_addr, port_num, accelerometer_data):
+    def __init__(self, ip_addr, port_num):
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_address = (ip_addr, port_num)
-        self.data = accelerometer_data
-        self.relay_flag = 0
-
+        self.accelerometer_data = None
+        self.gamestate_data = None
 
         threading.Thread.__init__(self)
 
     def send_data(self):
         success = True
-        msg = json.dumps(self.data)
+        # Sends Sample Data (For Now)
+        self.accelerometer_data = {"player_id": 1, "message_id": 2, "x_data": 0.005, "y_data": 0.0015, "z_data": 0.0025}
+        
+        msg = json.dumps(self.accelerometer_data)
         msg_length = str(len(msg))+'_'
 
         try:
@@ -64,10 +66,9 @@ class relay_client(threading.Thread):
             if len(data) == 0:
                 print('no more data from relay_server')
                 self.stop()
-            msg = data.decode("utf8")  # Decode raw bytes to UTF-8
+            msg = json.loads(data.decode("utf8"))  # Decode raw bytes to UTF-8
 
-            print("Message received from relay_server: ")
-            print(msg)
+            self.gamestate_data = msg
 
         except ConnectionResetError:
             print('Connection Reset')
@@ -82,24 +83,14 @@ class relay_client(threading.Thread):
         while True:
             self.send_data()
             self.receive_data()
-            self.relay_flag = 0
-            time.sleep(5)
 
 def main():
     ip_addr = '127.0.0.1'
     port_num = 8079
-    sample_accelerometer_data = {
-        "x": 0.0000,
-        "y": 0.0000,
-        "z": 0.0000
-    }
 
-    sample_accelerometer_data_string = json.dumps(sample_accelerometer_data)
-
-    current_relay = relay_client(ip_addr, port_num, sample_accelerometer_data)
+    current_relay = relay_client(ip_addr, port_num)
 
     current_relay.start()
-
     current_relay.join()
 
 
