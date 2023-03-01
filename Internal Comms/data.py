@@ -1,5 +1,8 @@
 from bluepy import btle
 from pathlib import Path
+from datetime import date
+import os
+import sys
 
 import threading
 import time
@@ -12,14 +15,16 @@ need_n_packet_loss = False
 need_n_corrupt = False
 need_better_display = False
 need_write_to_file = True
-ACTION_NUM = 4
+
+ACTION_NUM = sys.argv[1] 
+DATA_LENGTH = 40
 # 1 - grenade
 # 2 - reload
 # 3 - shield
 # 4 - log out
 
 file_index = 1
-file_name = "imu_data"
+file_name = "imu_data_" + str(date.today())
 is_movement_detected = False
 file_length = 0
 
@@ -43,8 +48,8 @@ mac = list()
 #mac.append('34:14:b5:51:d9:04') # gun
 #mac.append('34:15:13:22:a1:37') # vest x
 #mac.append('80:30:dc:d9:23:27') # vest
-mac.append('80:30:dc:e9:1c:74') # imu X
-#mac.append('80:30:dc:e9:08:d7') # imu
+#mac.append('80:30:dc:e9:1c:74') # imu X
+mac.append('80:30:dc:e9:08:d7') # imu
 
 d = list() #devices list
 
@@ -223,11 +228,11 @@ class ImuData:
 
 def get_file_index():
     global file_name, file_index
-    data_file_path = f"""./data/{file_name}_{file_index}.csv"""
+    data_file_path = f"""./data/{file_name}_Action_{ACTION_NUM}_{file_index}.csv"""
     path = Path(data_file_path)
     while(path.is_file()):
         file_index += 1
-        data_file_path = f"""./data/{file_name}_{file_index}.csv"""
+        data_file_path = f"""./data/{file_name}_Action_{ACTION_NUM}_{file_index}.csv"""
         path = Path(data_file_path)
         
 
@@ -244,9 +249,13 @@ def writeToFile(indata):
     imu_indata.gyro_y = struct.unpack('>h', indata[15:17])[0]
     imu_indata.gyro_z = struct.unpack('>h', indata[17:19])[0]
     
+    with open("AA_rawdata.csv", "a") as f:
+            f.write(f"""{imu_indata.timestamp},{ACTION_NUM},{imu_indata.acc_x},{imu_indata.acc_y},{imu_indata.acc_z},{imu_indata.gyro_x},{imu_indata.gyro_y},{imu_indata.gyro_z}\n""")
+            f.close()
+            
     #print( f"""{imu_indata.timestamp},{ACTION_NUM},{imu_indata.acc_x},{imu_indata.acc_y},{imu_indata.acc_z},{imu_indata.gyro_x},{imu_indata.gyro_y},{imu_indata.gyro_z}\n""")   
     
-    imu_filename = f"""./data/{file_name}_{file_index}.csv"""
+    imu_filename = f"""./data/{file_name}_Action_{ACTION_NUM}_{file_index}.csv"""
     if imu_indata.is_moving():
         is_movement_detected = True
         file_length = file_length + 1
@@ -256,14 +265,17 @@ def writeToFile(indata):
 
     else:
         if is_movement_detected:
-            if file_length >= 20:
+            if file_length >= DATA_LENGTH:
                 print(f"""{imu_filename} saved""")
                 file_index = file_index + 1
             else:
+                print(file_length)
                 file_length = 0
+                
                 with open(imu_filename, "w") as f:
                     f.write("")
                     f.close()
+                os.remove(imu_filename)
             file_length = 0
         is_movement_detected = False
 
