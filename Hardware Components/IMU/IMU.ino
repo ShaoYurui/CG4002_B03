@@ -10,6 +10,7 @@
 #define CALIBRATE_SAMPLE_NUM  200
 #define IMU_AG_SCALE_FACTOR   1000
 #define IMU_AG_THRESHOLD      100
+#define IMU_NO_MOVE_THRESHOLD 10
 /////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// HANDSHAKE PRE_COMPILE DEFINES ////////////////////////////////
 #define IMU_DATA               0x06
@@ -34,6 +35,7 @@ long accelerometer_x_cal, accelerometer_y_cal, accelerometer_z_cal;
 long gyro_x_cal, gyro_y_cal, gyro_z_cal; 
 float accelerometer_x_scaled, accelerometer_y_scaled, accelerometer_z_scaled; 
 float gyro_x_scaled, gyro_y_scaled, gyro_z_scaled;
+int no_movement_count = IMU_NO_MOVE_THRESHOLD;
 /////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// IMU PREPROCESS VARIABLES /////////////////////////////////////
 int16_t accelerometer_x_processed, accelerometer_y_processed, accelerometer_z_processed; 
@@ -197,10 +199,22 @@ bool is_movement_detected()
 
   if ( acc_sqrt * gyro_sqrt > IMU_AG_THRESHOLD)
   {
+    no_movement_count--;
+    if(no_movement_count <=0)
+    {
+      no_movement_count = 0;
+    }
     return true;
   }
 
-  return false;
+  no_movement_count++;
+  if(no_movement_count >= IMU_NO_MOVE_THRESHOLD)
+  {
+    no_movement_count = IMU_NO_MOVE_THRESHOLD;
+    return false;
+  }
+
+  return true;
 }
 
 void print_IMU_raw_data()
