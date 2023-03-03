@@ -1,14 +1,20 @@
 from bluepy import btle
 
-import threading
-import time
-
 import json
+import pandas as pd
+import os
+import sys
+import random as random
+import time
+import tkinter as tk
+from _socket import SHUT_RDWR
 import socket
 import threading
+import base64
+import traceback
+from queue import Queue
 
 import struct
-
 import curses
 
 #for debugging purpose
@@ -17,7 +23,7 @@ need_n_packet_received = True
 need_n_packet_fragmented = False
 need_n_packet_loss = False
 need_n_corrupt = False
-need_better_display = False
+need_better_display = True
 need_write_to_file = False
 
 ACK = b'\x41'
@@ -96,12 +102,7 @@ class CommunicationDelegate(btle.DefaultDelegate):
 
             d[self.pid].handshake_done = 1
             if indata == ACK_H:
-                if need_better_display:
-                    stdscr.addstr((self.pid * info_row), 0, "Device[{id}] handshake ACK received".format(id=self.pid))
-                    stdscr.refresh()
-                else:
-                    print("Device[{id}] handshake ACK received".format(id=self.pid))
-                # d[self.pid].ch.write(ACK)
+                displayOutput(self.pid * info_row, "Device[{id}] handshake ACK received".format(id=self.pid))
                 if not self.pid == 2:  # no ack for imu
                     d[self.pid].ch.write(ACK)
 
@@ -144,51 +145,24 @@ class CommunicationDelegate(btle.DefaultDelegate):
                 if need_n_packet_fragmented:
                     d[self.pid].n_time_sent += 1
 
-                if need_better_display:
-                    c[0].data_to_cloud += indata
-                    stdscr.addstr((self.pid*info_row), 0, "Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
-                    stdscr.refresh()
-                else:
-                    c[0].data_to_cloud += indata
-                    print("Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
+                c[0].data_to_cloud += indata
+                displayOutput(self.pid * info_row, "Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
 
 
                 if need_n_packet_received:
-                    if need_better_display:
-                        stdscr.addstr((self.pid * info_row + 1), 0, "Device[{id}] have received {n} packets".format(id=self.pid, n=d[self.pid].n_packet_received))
-                        stdscr.refresh()
-                    else:
-                        print("Device[{id}] have received {n} packets".format(id=self.pid, n=d[self.pid].n_packet_received))
+                    displayOutput(self.pid * info_row + 1, "Device[{id}] have received {n} packets".format(id=self.pid, n=d[self.pid].n_packet_received))
 
                 if need_n_corrupt:
-                    if need_better_display:
-                        stdscr.addstr((self.pid*info_row+2), 0, "Device[{id}] have received {n} corrupted packets".format(id=self.pid, n=d[self.pid].error_count))
-                        stdscr.refresh()
-                    else:
-                        print("Device[{id}] have received {n} corrupted packets".format(id=self.pid, n=d[self.pid].error_count))
+                    displayOutput(self.pid * info_row + 2, "Device[{id}] have received {n} corrupted packets".format(id=self.pid, n=d[self.pid].error_count))
 
                 if need_n_packet_fragmented:
-                    if need_better_display:
-                        #stdscr.addstr((self.pid*info_row+3), 0, "Device[{id}] have detected {n} fragmented packets".format(id=self.pid, n=d[self.pid].n_time_received-d[self.pid].n_time_sent+d[self.pid].n_fragment))
-                        stdscr.addstr((self.pid*info_row+2), 0, "Device[{id}] have detected {n} fragmented packets".format(id=self.pid, n=d[self.pid].n_fragment))
-                        stdscr.refresh()
-                    else:
-                        print("Device[{id}] have detected {n} fragmented packets".format(id=self.pid, n=d[self.pid].n_time_received-d[self.pid].n_time_sent+d[self.pid].n_fragment))
+                    displayOutput(self.pid * info_row + 2, "Device[{id}] have detected {n} fragmented packets".format(id=self.pid, n=d[self.pid].n_time_received-d[self.pid].n_time_sent+d[self.pid].n_fragment))
 
                 if need_n_packet_loss:
-                    if need_better_display:
-                        stdscr.addstr((self.pid*info_row+4), 0, "Device[{id}] have {n} packets loss".format(id=self.pid, n=d[self.pid].n_packet_loss))
-                        stdscr.refresh()
-                    else:
-                        print("Device[{id}] have {n} packets loss".format(id=self.pid, n=d[self.pid].n_packet_loss))
+                    displayOutput(self.pid*info_row+4, "Device[{id}] have {n} packets loss".format(id=self.pid, n=d[self.pid].n_packet_loss))
 
                 if need_elapsed_time:
-                    if need_better_display:
-                        #stdscr.addstr((self.pid*info_row+5), 0, "Elapsed time: {time}".format(time=time.time()-d[self.pid].start_time))
-                        stdscr.addstr((self.pid*info_row+3), 0, "Elapsed time: {time}".format(time=time.time()-d[self.pid].start_time))
-                        stdscr.refresh()
-                    else:
-                        print("Elapsed time: {time}".format(time=time.time()-d[self.pid].start_time))
+                    displayOutput(self.pid*info_row+3, "Elapsed time: {time}".format(time=time.time()-d[self.pid].start_time))
 
                 if not self.pid == 2: #no ack for imu
                     d[self.pid].ch.write(ACK)
@@ -208,6 +182,14 @@ if need_write_to_file:
         with open(filename, "a") as f:
             for i in range(3):
                 f.write(imudata[i])
+
+
+def displayOutput(row, output):
+    if need_better_display:
+        stdscr.addstr(row, 0, output)
+        stdscr.refresh()
+    else:
+        print(output)
 
 
 def verifyValidData(id):
@@ -266,8 +248,7 @@ def handleBeetle(i):
     d[i].peripheral = btle.Peripheral()
     d[i].data = bytearray(b'')
     if need_better_display:
-        stdscr.addstr((i*info_row), 0, "Connecting device {id}".format(id=i))
-        stdscr.refresh()
+        displayOutput(i*info_row, "Connecting device {id}".format(id=i))
     timeout = 0
     try:
         d[i].peripheral.connect(mac[i])
@@ -276,23 +257,11 @@ def handleBeetle(i):
         d[i].svc = d[i].peripheral.getServiceByUUID('0000dfb0-0000-1000-8000-00805f9b34fb')
         d[i].ch = d[i].svc.getCharacteristics()[0]
         d[i].setup = 1
-        if need_better_display:
-            stdscr.addstr((i*info_row), 0, "Device[{id}] connected".format(id=i))
-            stdscr.refresh()
-        else:
-            print("Device[{id}] connected".format(id=i))
+        displayOutput(i*info_row, "Device[{id}] connected".format(id=i))
     except btle.BTLEDisconnectError:
-        if need_better_display:
-            stdscr.addstr((i*info_row), 0, "Device[{id}] not connected".format(id=i))
-            stdscr.refresh()
-        else:
-            print("Device[{id}] not connected".format(id=i))
+        displayOutput(i*info_row, "Device[{id}] not connected".format(id=i))
     except AttributeError:
-        if need_better_display:
-            stdscr.addstr((i*info_row), 0, "Device[{id}] not connected".format(id=i))
-            stdscr.refresh()
-        else:
-            print("Device[{id}] not connected".format(id=i))
+        displayOutput(i*info_row, "Device[{id}] not connected".format(id=i))
         time.sleep(1)
 
     while True:
@@ -322,11 +291,7 @@ def handleBeetle(i):
                         self.prev_msg_id = -1
             '''
             if d[i].setup == 0: #check setup
-                if need_better_display:
-                    stdscr.addstr((i*info_row), 0, "Try setting up device[{id}] again".format(id=i))
-                    stdscr.refresh()
-                else:
-                    print("Try setting up device[{id}] again".format(id=i))
+                displayOutput(i*info_row, "Try setting up device[{id}] again".format(id=i))
                 try:
                     d[i].peripheral.connect(mac[i])
                     d[i].connection = 1
@@ -334,108 +299,61 @@ def handleBeetle(i):
                     d[i].svc = d[i].peripheral.getServiceByUUID('0000dfb0-0000-1000-8000-00805f9b34fb')
                     d[i].ch = d[i].svc.getCharacteristics()[0]
                     d[i].setup = 1
-                    if need_better_display:
-                        stdscr.addstr((i*info_row), 0, "Device[{id}] connected".format(id=i))
-                        stdscr.refresh()
-                    else:
-                        print("Device[{id}] connected".format(id=i))
+                    displayOutput(i*info_row, "Device[{id}] connected".format(id=i))
                 except btle.BTLEDisconnectError:
-                    if need_better_display:
-                        stdscr.addstr((i*info_row), 0, "Device[{id}] still not connected".format(id=i))
-                        stdscr.refresh()
-                    else:
-                        print("Device[{id}] still not connected".format(id=i))
+                    displayOutput(i * info_row, "Device[{id}] still not connected".format(id=i))
                 except AttributeError:
-                    if need_better_display:
-                        stdscr.addstr((i * info_row), 0, "Device[{id}] not connected".format(id=i))
-                        stdscr.refresh()
-                    else:
-                        print("Device[{id}] not connected".format(id=i))
+                    displayOutput(i * info_row, "Device[{id}] not connected".format(id=i))
                     time.sleep(1)
             elif d[i].connection == 0: #check connection
-                if need_better_display:
-                    stdscr.addstr((i*info_row), 0, "Reconnecting device[{id}]                                      ".format(id=i))
-                    stdscr.refresh()
-                else:
-                    print("Reconnecting device[{id}]".format(id=i))
+                displayOutput(i * info_row, "Reconnecting device[{id}]                                      ".format(id=i))
                 try:
                     d[i].peripheral.connect(mac[i])
                     d[i].connection = 1
                     d[i].handshake_start = 0
                     d[i].handshake_done = 0
-                    if need_better_display:
-                        stdscr.addstr((i*info_row), 0, "Device[{id}] connected   ".format(id=i))
-                        stdscr.refresh()
-                    else:
-                        print("Device[{id}] connected".format(id=i))
+                    displayOutput(i * info_row, "Device[{id}] connected   ".format(id=i))
                 except btle.BTLEDisconnectError:
-                    if need_better_display:
-                        stdscr.addstr((i*info_row), 0, "Device[{id}] not connected".format(id=i))
-                        stdscr.refresh()
-                    else:
-                        print("Device[{id}] not connected".format(id=i))
+                    displayOutput(i * info_row, "Device[{id}] not connected".format(id=i))
             elif d[i].handshake_start == 0:  # check handshake has begun
                 try:
                     time.sleep(5)
                     timeout = time.time() + 10  # 10s from now
                     d[i].ch.write(REQUEST_H)
                     d[i].handshake_start = 1
-                    if need_better_display:
-                        stdscr.addstr((i*info_row), 0, "Device[{id}] begin handshake".format(id=i))
-                        stdscr.refresh()
-                    else:
-                        print("Device[{id}] begin handshake".format(id=i))
+                    displayOutput(i * info_row, "Device[{id}] begin handshake".format(id=i))
                 except btle.BTLEDisconnectError:
-                    if need_better_display:
-                        stdscr.addstr((i*info_row), 0, "Device[{id}] disconnected".format(id=i))
-                        stdscr.refresh()
-                    else:
-                        print("Device[{id}] disconnected".format(id=i))
+                    displayOutput(i * info_row, "Device[{id}] disconnected".format(id=i))
                     d[i].connection = 0
             elif d[i].handshake_done == 0:  # check handshake is done
-                if need_better_display:
-                    stdscr.addstr((i*info_row), 0, "Device[{id}] waiting handshake ACK...".format(id=i))
-                    stdscr.refresh()
-                else:
-                    print("Device[{id}] waiting handshake ACK...".format(id=i))
+                displayOutput(i * info_row, "Device[{id}] waiting handshake ACK...".format(id=i))
                 try:
                     d[i].peripheral.waitForNotifications(1.0)
                     if time.time() > timeout:
+                        '''
                         if need_better_display:
                             stdscr.addstr((i*info_row), 0, "Device[{id}] resend handshake".format(id=i))
                             stdscr.refresh()
                         else:
                             print("Device[{id}] resend handshake".format(id=i))
+                        '''
+                        displayOutput(i * info_row, "Device[{id}] resend handshake".format(id=i))
                         d[i].handshake_start = 0
                         d[i].handshake_done = 0
                 except btle.BTLEDisconnectError:
-                    if need_better_display:
-                        stdscr.addstr((i*info_row), 0, "Device[{id}] disconnected".format(id=i))
-                        stdscr.refresh()
-                    else:
-                        print("Device[{id}] disconnected".format(id=i))
+                    displayOutput(i * info_row, "Device[{id}] disconnected".format(id=i))
                     d[i].connection = 0
             else:  # normal communication
                 # if got data to send to hw
                 #if len(d[i].data_to_hw) > 0:
                 #    d[i].ch.write(d[i].data_to_hw[0])
 
-                if need_better_display:
-                    '''
-                    stdscr.addstr(i, 0, "Device[{id}] waiting...".format(id=i))
-                    stdscr.clrtoeol()
-                    stdscr.refresh()
-                    '''
-                else:
-                    print("Device[{id}] waiting...".format(id=i))
+                if not need_better_display:
+                    displayOutput(i * info_row, "Device[{id}] waiting...".format(id=i))
                 try:
                     d[i].peripheral.waitForNotifications(1.0)
                 except btle.BTLEDisconnectError:
-                    if need_better_display:
-                        stdscr.addstr((i*info_row), 0, "Device[{id}] disconnected".format(id=i))
-                        stdscr.refresh()
-                    else:
-                        print("Device[{id}] disconnected".format(id=i))
+                    displayOutput(i * info_row, "Device[{id}] disconnected".format(id=i))
                     d[i].connection = 0
 
                 # testing only, send for 10s
@@ -504,30 +422,32 @@ def handleConnection():
             try:
                 c[0].socket.sendall(msg_length.encode("utf-8"))
                 c[0].socket.sendall(msg.encode("utf-8"))
-                print("Message sent to relay_server!")
+                if not need_better_display:
+                    print("Message sent to relay_server!")
             except OSError:
-                print("connection between relay_client and relay_server lost")
+                if not need_better_display:
+                    print("connection between relay_client and relay_server lost")
 
 
 if __name__ == "__main__":
     threads = list()
 
-    if need_better_display:
-        info_row = 6
-        '''
-        info_row = 1
-        if need_elapsed_time:
-            info_row += 1
-        if need_n_packet_received:
-            info_row += 1
-        if need_n_packet_fragmented:
-            info_row += 1
-        if need_n_packet_loss:
-            info_row += 1
-        if need_n_corrupt:
-            info_row += 1
-        '''
+    info_row = 6
+    '''
+    info_row = 1
+    if need_elapsed_time:
+        info_row += 1
+    if need_n_packet_received:
+        info_row += 1
+    if need_n_packet_fragmented:
+        info_row += 1
+    if need_n_packet_loss:
+        info_row += 1
+    if need_n_corrupt:
+        info_row += 1
+    '''
 
+    if need_better_display:
         stdscr = curses.initscr()
         stdscr.clear()
         stdscr.refresh()
@@ -538,13 +458,6 @@ if __name__ == "__main__":
 
     t = threading.Thread(target=handleConnection)
     threads.append(t)
-
-    '''
-    for x in range(nBeetle):
-        t = threading.Thread(target=handleConnection, args=(x,))
-        threads.append(t)
-    '''
-
 
     for t in threads:
         t.start()
