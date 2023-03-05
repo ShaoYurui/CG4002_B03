@@ -40,29 +40,27 @@ DEFAULT_GAME_STATE              = {
 
 class relay_server(threading.Thread):
 
-    def __init__(self, ip_addr, port_num, accelerometer_queue, gamestate_queue):
+    def __init__(self, ip_addr, port_num, default_gamestate, accelerometer_queue, gamestate_queue):
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind((ip_addr, port_num))
         self.connection = None
         self.address = ""
+        self.dataframe = None
         self.accelerometer_data = None
-        self.gamestate_data = None
+        self.gamestate_data = default_gamestate
         self.accelerometer_queue = accelerometer_queue
         self.gamestate_queue = gamestate_queue
 
-        threading.Thread.__init__(self)
+        threading.Thread.__init__(self)        
 
     def send_data(self):
         success = True
         try:
             self.gamestate_data = self.gamestate_queue.get_nowait()
-
-            print("Queue has something!")
             msg = json.dumps(self.gamestate_data)
             msg_length = str(len(msg))+'_'
         except Empty:
-            print("Empty Queue!")
             msg = json.dumps(self.gamestate_data)
             msg_length = str(len(msg))+'_'
 
@@ -125,15 +123,15 @@ class relay_server(threading.Thread):
         self.socket.listen(1)
         self.connection, self.address = self.socket.accept()
         print("relay_server is now connected to relay_client!")
+
         while True:
             # Receives Accelerometer Data From relay_client
             self.receive_data()
             self.send_hardware_AI()
             # Sends GameState Data To relay_client
             self.send_data()
-            time.sleep(5)
 
-
+"""
 def main():
     ip_addr = '192.168.95.249'
     port_num = 8079
@@ -143,7 +141,7 @@ def main():
 
     gamestate_queue.put(DEFAULT_GAME_STATE)
 
-    current_relayserver = relay_server(ip_addr, port_num, accelerometer_queue, gamestate_queue)
+    current_relayserver = relay_server(ip_addr, port_num, DEFAULT_GAME_STATE, accelerometer_queue, gamestate_queue)
 
     current_relayserver.start()
     current_relayserver.join()
@@ -151,4 +149,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+"""
 

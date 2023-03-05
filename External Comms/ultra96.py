@@ -14,103 +14,91 @@ from multiprocessing import Queue
 
 from eval_client import eval_client
 from  relay_server import relay_server
-from visualizer_server import visualizer_server
+from HardwareAI import HardwareAI
 
 # Queues
 
 accelerometer_queue = Queue()
 gamestate_queue = Queue()
+prediction_queue = Queue()
+p1_queue = Queue()
+p2_queue = Queue()
 
 # eval_client Parameters
-EVAL_IP                         = '192.168.95.226'
+EVAL_IP                         = '192.168.95.249'
 EVAL_PORT                       = 8080
 GROUP_ID                        = 'B03'
 SECRET_KEY                      = 1212121212121212
 
 # relay_server Parameters
-RELAY_IP                        = '192.168.95.226'
+RELAY_IP                        = '192.168.95.249'
 RELAY_PORT                      = 8079
-
-# visualizer_server Parameters
-VISUALIZER_BROKER               = 'broker.emqx.io'
-VISUALIZER_PORT                 = 1883
-VISUALIZER_TOPIC                = "ultra96"
-VISUALIZER_USERNAME             = "KaiserHuang"
-VISUALIZER_PASSWORD             = "public"
-
-# sample accelerometer data
-SAMPLE_ACCELEROMETER_DATA       = {
-                                        "x": 1.0000,
-                                        "y": 1.0000,
-                                        "z": 1.0000
-                                    }
 
 # Default Game State
 DEFAULT_GAME_STATE              = {
                                         "p1": {
-                                            "hp": 10,
-                                            "action": "grenade",
-                                            "bullets": 1,
-                                            "grenades": 1,
-                                            "shield_time": 0,
-                                            "shield_health": 3,
-                                            "num_deaths": 1,
-                                            "num_shield": 0
+                                            "hp": 100,
+                                            "action": "none",
+                                            "bullets": 6,
+                                            "grenades": 2,
+                                            "shield_time": 10,
+                                            "shield_health": 30,
+                                            "num_deaths": 0,
+                                            "num_shield": 3
                                         },
                                         "p2": {
                                             "hp": 100,
-                                            "action": "shield",
-                                            "bullets": 2,
+                                            "action": "none",
+                                            "bullets": 6,
                                             "grenades": 2,
-                                            "shield_time": 1,
-                                            "shield_health": 0,
-                                            "num_deaths": 5,
-                                            "num_shield": 2
+                                            "shield_time": 10,
+                                            "shield_health": 30,
+                                            "num_deaths": 0,
+                                            "num_shield": 3
                                         }
                                     }
 
 
 
 class Ultra96():
-    def __init__(self):
+    def __init__(self, game_mode):
+        self.game_mode = game_mode
         threading.Thread.__init__(self)
 
         return
 
     def run(self):
-
         my_eval_client = eval_client(EVAL_IP
                                     , EVAL_PORT
                                     , GROUP_ID
                                     , SECRET_KEY
-                                    , DEFAULT_GAME_STATE
-                                    , gamestate_queue)
+                                    , game_mode
+                                    , gamestate_queue
+                                    , prediction_queue
+                                    , p1_queue
+                                    , p2_queue)
 
         my_relay_server = relay_server(RELAY_IP
                                     , RELAY_PORT
-                                    , SAMPLE_ACCELEROMETER_DATA
-                                    , accelerometer_queue)
-
-        my_visualizer_server = visualizer_server(VISUALIZER_BROKER
-                                                , VISUALIZER_PORT
-                                                , VISUALIZER_TOPIC
-                                                , VISUALIZER_USERNAME
-                                                , VISUALIZER_PASSWORD
-                                                , gamestate_queue)
+                                    , DEFAULT_GAME_STATE
+                                    , accelerometer_queue
+                                    , gamestate_queue)
+        
+        my_HardwareAI = HardwareAI(accelerometer_queue
+                                    , prediction_queue)
 
         my_eval_client.start()
         my_relay_server.start()
-        my_visualizer_server.start()
+        my_HardwareAI.start()
 
         my_eval_client.join()
         my_relay_server.join()
-        my_visualizer_server.join()
-
-
-
+        my_HardwareAI.start()
 
 
 if __name__ == '__main__':
-    my_ultra96 = Ultra96()
+    game_mode = sys.argv[1]
+
+    my_ultra96 = Ultra96(game_mode)
     my_ultra96.run()
 

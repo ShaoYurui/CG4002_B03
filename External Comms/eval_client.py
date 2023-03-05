@@ -14,16 +14,36 @@ from Crypto.Util.Padding import pad, unpad
 from Crypto import Random
 import traceback
 from multiprocessing import Queue
+from queue import Empty
+
+from player import player
+
 
 class eval_client(threading.Thread):
 
-    def __init__(self, ip_addr, port_num, group_id, secret_key, default_game_state, gamestate_queue):
+    def __init__(self
+                 , ip_addr
+                 , port_num
+                 , group_id
+                 , secret_key
+                 , game_mode
+                 , gamestate_queue
+                 , prediction_queue
+                 , p1_queue
+                 , p2_queue):
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_address = (ip_addr, port_num)
         self.secret_key = secret_key
-        self.data = default_game_state
+        # Game Mode: 0 - Single_Person. 1 - Two_Person. 2 - No_Eval_Server
+        self.game_mode = game_mode
+        self.predicted_gamestate = None
         self.gamestate_queue = gamestate_queue
+        self.prediction_queue = prediction_queue
+        self.p1_queue = p1_queue
+        self.p2_queue = p2_queue
+        self.p1 = player(p1_queue)
+        self.p2 = player(p2_queue)
 
         threading.Thread.__init__(self)
     
@@ -39,7 +59,8 @@ class eval_client(threading.Thread):
 
     def send_data(self):
         success = True
-        plaintext = json.dumps(self.data)
+        
+        plaintext = json.dumps(self.predicted_gamestate)
         plaintext_length = str(len(plaintext))+'_'
         ciphertext = self._encrypt_message(plaintext)
 
@@ -82,26 +103,132 @@ class eval_client(threading.Thread):
                 self.stop()
             msg = data.decode("utf8")  # Decode raw bytes to UTF-8
 
-            print("Message received from eval_server: ")
-            print(msg)
-            self.data = json.loads(msg)
-            print(self.gamestate_queue.qsize())
+            correct_gamestate = json.loads(msg)
+            self.gamestate_queue.put(correct_gamestate)
 
         except ConnectionResetError:
             print('Connection Reset')
             self.stop()
 
         return
+    
+    def singleperson_game(self, sender, command):
+
+        if command == "shoot":
+            if sender == "p1":
+                self.p1_queue.put("perform_shoot")
+                time.sleep(1)
+            elif (sender == "p2"):
+                self.p2_queue.put("perform_shoot")
+                time.sleep(1)
+
+        elif command == "grenade":
+            if (sender == "p1"):
+                self.p1_queue.put("perform_grenade")
+                time.sleep(1)
+            elif (sender == "p2"):
+                self.p2_queue.put("perform_grenade")
+                time.sleep(1)
+        
+        elif command == "shield":
+            if (sender == "p1"):
+                self.p1_queue.put("perform_shield")
+                time.sleep(1)
+            elif (sender == "p2"):
+                self.p2_queue.put("perform_shield")
+                time.sleep(1)
+
+        elif command == "reload":
+            if (sender == "p1"):
+                self.p1_queue.put("perform_reload")
+                time.sleep(1)
+            elif (sender == "p2"):
+                self.p2_queue.put("perform_reload")
+                time.sleep(1)
+
+        return
+
+    
+    def multiperson_game(self, sender, receiver, command):
+
+        if command == "shoot":
+            if ((sender == "p1") and (receiver == "p2")):
+                self.p1_queue.put("perform_shoot")
+                self.p2_queue.put("bullet_hit")
+                time.sleep(1)
+            elif ((sender == "p2") and (receiver == "p1")):
+                self.p1_queue.put("bullet_hit")
+                self.p2_queue.put("perform_shoot")
+                time.sleep(1)
+
+        elif command == "grenade":
+            if ((sender == "p1") and (receiver == "p2")):
+                self.p1_queue.put("perform_grenade")
+                self.p2_queue.put("grenade_hit")
+                time.sleep(1)
+            elif ((sender == "p2") and (receiver == "p1")):
+                self.p1_queue.put("grenade_hit")
+                self.p2_queue.put("perform_grenade")
+                time.sleep(1)
+        
+        elif command == "shield":
+            if ((sender == "p1") and (receiver == "p2")):
+                self.p1_queue.put("perform_shield")
+                time.sleep(1)
+            elif ((sender == "p2") and (receiver == "p1")):
+                self.p2_queue.put("perform_shield")
+                time.sleep(1)
+
+        elif command == "reload":
+            if ((sender == "p1") and (receiver == "p2")):
+                self.p1_queue.put("perform_reload")
+                time.sleep(1)
+            elif ((sender == "p2") and (receiver == "p1")):
+                self.p2_queue.put("perform_reload")
+                time.sleep(1)
+
+        return
+    
+    def handle_gamestate(self):
+        sender = self.prediction_value["sender"]
+        receiver = self.prediction_value["receiver"]
+        command = self.prediction_value["command"]
+
+        if self.game_mode == 0:
+            self.singleperson_game(sender, command)
+        elif self.game_mode != 0:
+            self.multiperson_game(sender, receiver, command)
+        
+        self.predicted_gamestate = {"p1": self.p1.playerstate, "p2": self.p2.playerstate}
+
 
     def run(self):
-
+        # Connect to Ultra96
         self.socket.connect(self.server_address)
         print("eval_client is now connected to eval_server!")
+
+        # Start the 2 players
+        self.p1.start()
+        self.p2.start()
+
         while True:
-            self.send_data()
-            self.receive_data()
-            self.gamestate_queue.put(self.data)
-            time.sleep(5)
+            try: 
+                self.prediction_value = self.prediction_queue.get()
+                print("Handling Gamestate")
+                self.handle_gamestate()
+                if self.game_mode != 2:
+                    self.send_data()
+                    self.receive_data()
+                elif self.game_mode == 2:
+                    self.gamestate_queue.put(self.predicted_gamestate)
+            except Empty:
+                continue
+        
+        self.p1.join()
+        self.p2.join()
+
+
+
 
 """"
 def main():

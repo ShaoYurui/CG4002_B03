@@ -3,6 +3,7 @@ import time
 import threading
 from multiprocessing import Queue
 import json
+from queue import Empty
 
 from paho.mqtt import client as mqtt_client
 
@@ -15,7 +16,7 @@ class visualizer_server(threading.Thread):
         self.password = password
         self.client_id = f'ultra96-{random.randint(0, 1000)}'
         self.client = None
-        self.gamestate = None
+        self.gamestate = "hohoho"
         self.gamestate_queue = gamestate_queue
 
         threading.Thread.__init__(self)
@@ -31,36 +32,30 @@ class visualizer_server(threading.Thread):
 
 
     def publish(self):
-        msg_count = 0
         while True:
             try: 
                 self.gamestate = self.gamestate_queue.get()
                 msg = json.dumps(self.gamestate)
-            except self.gamestate_queue.Empty:
+            except Empty:
                 msg = json.dumps(self.gamestate)
 
             result = self.client.publish(self.topic, msg)
             # result: [0, 1]
-            status = result[0]
-            if status == 0:
-                print(f"Send `{msg}` to topic `{self.topic}`")
-            else:
-                print(f"Failed to send message to topic {self.topic}")
-            msg_count += 1
             
-            time.sleep(5)
-
     def run(self):
         self.client = self.connect_mqtt()
         self.client.loop_start()
+        print(self.client_id)
         self.publish()
 
 
 if __name__ == '__main__':
+    q = Queue()
     my_visualizer = visualizer_server(broker='broker.emqx.io'
                                         , port=1883
                                         , topic="ultra96"
                                         , username="KaiserHuang"
-                                        , password="public")
+                                        , password="public"
+                                        , gamestate_queue=q)
                                         
     my_visualizer.start()

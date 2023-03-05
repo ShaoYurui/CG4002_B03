@@ -20,7 +20,7 @@ class GameState:
         data = self.get_dict()
         return json.dumps(data)
 
-    """"
+    
     # send the game state json to remote host
     def send_plaintext(self, remote_socket):
         success = True
@@ -36,7 +36,7 @@ class GameState:
             print("Connection terminated")
             success = False
         return success
-    """
+
 
     def init_player (self, player_id, action, hp, bullets_remaining, grenades_remaining,
                      shield_time_remaining, shield_health, num_unused_shield, num_deaths):
