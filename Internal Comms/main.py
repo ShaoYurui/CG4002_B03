@@ -23,7 +23,7 @@ need_n_packet_received = True
 need_n_packet_fragmented = False
 need_n_packet_loss = False
 need_n_corrupt = False
-need_better_display = True
+need_better_display = False
 need_write_to_file = False
 
 ACK = b'\x41'
@@ -412,6 +412,8 @@ def handleConnection():
 
     c[0].socket.connect(c[0].server_address)
 
+    c[0].socket.setblocking(0)
+
     while True:
         #send data
         if len(c[0].data_to_cloud) > 0:
@@ -427,6 +429,60 @@ def handleConnection():
             except OSError:
                 if not need_better_display:
                     print("connection between relay_client and relay_server lost")
+
+        #receive data
+        try:
+            c[0].socket.setblocking(0)
+            data = b''
+            while True:
+                _d = c[0].socket.recv(1)
+                if not _d:
+                    data = b''
+                    break
+                try:
+                    data += _d
+                    int(data)
+                except ValueError:
+                    data = data[:-1]
+                    break
+            '''
+            while not data.endswith(b'_'):
+                _d = c[0].socket.recv(1)
+                if not _d:
+                    data = b''
+                    break
+                data += _d
+            '''
+            if len(data) == 0:
+                print('no more data from relay_server')
+                #c[0].stop()
+                continue
+
+            data = data.decode("utf-8")
+            length = int(data)
+
+            c[0].socket.setblocking(1)
+            data = b''
+            while len(data) < length:
+                _d = c[0].socket.recv(length - len(data))
+                if not _d:
+                    data = b''
+                    break
+                data += _d
+            if len(data) == 0:
+                print('no more data from relay_server')
+                #c[0].stop()
+                continue
+            msg = json.loads(data.decode("utf8"))  # Decode raw bytes to UTF-8
+            print(msg)
+
+        except BlockingIOError:
+            continue
+
+        except ConnectionResetError:
+            print('Connection Reset')
+            continue
+            #self.stop()
 
 
 if __name__ == "__main__":
