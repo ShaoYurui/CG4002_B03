@@ -28,7 +28,7 @@ void setup()
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), button_isr, FALLING);
   IrSender.begin(SEND_PIN); // Initializes IR sender
 
-  //sound_reload();
+  sound_reload();
 }  
 void loop()  
 {  
