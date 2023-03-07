@@ -11,8 +11,9 @@ import threading
 import base64
 import traceback
 import datetime
-from queue import Queue
 from queue import Empty
+from multiprocessing import Pipe
+
 
 class relay_client(threading.Thread):
 
@@ -36,7 +37,6 @@ class relay_client(threading.Thread):
         try:
             self.socket.sendall(msg_length.encode("utf-8"))
             self.socket.sendall(msg.encode("utf-8"))
-            print("Message sent to relay_server!")
         except OSError:
             print("connection between relay_client and relay_server lost")
             success = False
@@ -83,8 +83,19 @@ class relay_client(threading.Thread):
         self.socket.connect(self.server_address)
         print("relay_client is now connected to relay_server!")
         while True:
-            self.send_data()
+            # Send Data for 1s
+            endTime = datetime.datetime.now() + datetime.timedelta(microseconds=1000)
+            while datetime.datetime.now() <= endTime:
+                try:
+                    self.send_data()
+                except Empty:
+                    continue
+
+            print("From relay_client: Accelerometer Data Sent!")
+            
+            # Receive Data
             self.receive_data()
+            print(self.gamestate_data)
 
 def main():
     ip_addr = '127.0.0.1'
