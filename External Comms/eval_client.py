@@ -17,6 +17,7 @@ from multiprocessing import Queue
 from multiprocessing import Pipe
 from queue import Empty
 
+"""
 class eval_client(threading.Thread):
 
     def __init__(self
@@ -227,6 +228,8 @@ class eval_client(threading.Thread):
             except Empty:
                 continue
 """
+
+
 class eval_client(threading.Thread):
 
     def __init__(self
@@ -235,7 +238,8 @@ class eval_client(threading.Thread):
                  , group_id
                  , secret_key
                  , game_mode
-                 , gamestate_queue
+                 , gamestate_queue_1
+                 , gamestate_queue_2
                  , prediction_queue
                  , eval_to_p1_queue
                  , eval_to_p2_queue
@@ -248,7 +252,8 @@ class eval_client(threading.Thread):
         # Game Mode: 0 - Single_Person. 1 - Two_Person. 2 - No_Eval_Server
         self.game_mode = game_mode
         self.predicted_gamestate = None
-        self.gamestate_queue = gamestate_queue
+        self.gamestate_queue_1 = gamestate_queue_1
+        self.gamestate_queue_2 = gamestate_queue_2
         self.prediction_queue = prediction_queue
         self.eval_to_p1_queue = eval_to_p1_queue
         self.eval_to_p2_queue = eval_to_p2_queue
@@ -259,7 +264,6 @@ class eval_client(threading.Thread):
     
 
     def _encrypt_message(self, plaintext):
-        print("Plaintext to be sent to eval_server: ", plaintext)
         iv = Random.new().read(AES.block_size)
         secret_key = bytes(str(self.secret_key), encoding="utf8")
         cipher = AES.new(secret_key, AES.MODE_CBC, iv)
@@ -277,7 +281,6 @@ class eval_client(threading.Thread):
         ciphertext_length = str(len(ciphertext))+'_'
 
         try:
-            print("Sending data to eval_server")
             self.socket.sendall(ciphertext_length.encode("utf-8"))
             self.socket.sendall(ciphertext)
         except OSError:
@@ -327,29 +330,36 @@ class eval_client(threading.Thread):
         if command == "shoot":
             if sender == "p1":
                 self.eval_to_p1_queue.put("perform_shoot")
+                self.eval_to_p2_queue.put("bullet_hit")
+
             elif (sender == "p2"):
+                self.eval_to_p1_queue.put("bullet_hit")
                 self.eval_to_p2_queue.put("perform_shoot")
 
         elif command == "grenade":
             if (sender == "p1"):
                 self.eval_to_p1_queue.put("perform_grenade")
+                self.eval_to_p2_queue.put("grenade_hit")
             elif (sender == "p2"):
+                self.eval_to_p1_queue.put("grenade_hit")
                 self.eval_to_p2_queue.put("perform_grenade")
                     
         elif command == "shield":
             if (sender == "p1"):
                 self.eval_to_p1_queue.put("perform_shield")
+                self.eval_to_p2_queue.put("no_apply")
             elif (sender == "p2"):
+                self.eval_to_p1_queue.put("no_apply")
                 self.eval_to_p2_queue.put("perform_shield")
 
         elif command == "reload":
             if (sender == "p1"):
                 self.eval_to_p1_queue.put("perform_reload")
+                self.eval_to_p2_queue.put("no_apply")
             elif (sender == "p2"):
+                self.eval_to_p1_queue.put("no_apply")
                 self.eval_to_p2_queue.put("perform_reload")
         
-        print("From eval_client: Prediction sent to players")
-
         return
 
     
@@ -374,16 +384,18 @@ class eval_client(threading.Thread):
         elif command == "shield":
             if ((sender == "p1") and (receiver == "p2")):
                 self.eval_to_p1_queue.put("perform_shield")
+                self.eval_to_p2_queue.put("no_apply")
             elif ((sender == "p2") and (receiver == "p1")):
+                self.eval_to_p1_queue.put("no_apply")
                 self.eval_to_p2_queue.put("perform_shield")
 
         elif command == "reload":
             if ((sender == "p1") and (receiver == "p2")):
                 self.eval_to_p1_queue.put("perform_reload")
+                self.eval_to_p2_queue.put("no_apply")
             elif ((sender == "p2") and (receiver == "p1")):
+                self.eval_to_p1_queue.put("no_apply")
                 self.eval_to_p2_queue.put("perform_reload")
-
-        print("From eval_client: Prediction sent to players")
 
         return
     
@@ -394,28 +406,15 @@ class eval_client(threading.Thread):
 
         if self.game_mode == 0:
             self.singleperson_game(sender, command)
-            print("HOHOHOHO!")
-            p1_playerstate = self.p1_to_eval_queue.get()
-            print("Hi!")
-            p2_playerstate = {
-                                "hp": 100,
-                                "action": "none",
-                                "bullets": 6,
-                                "grenades": 2,
-                                "shield_time": 10,
-                                "shield_health": 30,
-                                "num_deaths": 0,
-                                "num_shield": 3
-                                }
             
         elif self.game_mode != 0:
             self.multiperson_game(sender, receiver, command)
-            p1_playerstate = self.p1_to_eval_queue.get()
-            print("From eval_client: Player 1 Gamestate calculated")
-            p2_playerstate = self.p2_to_eval_queue.get()
-            print("From eval_client: Player 2 Gamestate calculated")
+
+        p1_playerstate = self.p1_to_eval_queue.get()
+        p2_playerstate = self.p2_to_eval_queue.get()
         self.predicted_gamestate = {"p1": p1_playerstate, "p2": p2_playerstate}
-        print(self.predicted_gamestate["p1"])
+
+        return
 
 
     def run(self):
@@ -436,15 +435,14 @@ class eval_client(threading.Thread):
                 elif self.game_mode == 2:
                     updated_gamestate = self.predicted_gamestate
                 
-                self.gamestate_queue.put(updated_gamestate)
+                self.gamestate_queue_1.put(updated_gamestate)
+                self.gamestate_queue_2.put(updated_gamestate)
 
             except Empty:
                 continue
+
+
 """
-
-
-
-""""
 def main():
     ip_addr = '192.168.95.226'
     port_num = 8080

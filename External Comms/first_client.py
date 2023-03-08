@@ -94,7 +94,7 @@ class relay_client(threading.Thread):
 
 def main():
     ip_addr = '127.0.0.1'
-    port_num = 8079
+    port_num = 8049
 
     current_relay = relay_client(ip_addr, port_num)
 

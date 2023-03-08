@@ -40,6 +40,7 @@ DEFAULT_GAME_STATE              = {
                                         }
                                     }
 
+"""
 class relay_server(threading.Thread):
 
     def __init__(self, ip_addr, port_num, default_gamestate, relay_to_AI_conn, relay_to_eval_conn):
@@ -145,9 +146,9 @@ class relay_server(threading.Thread):
 
             # Sends GameState Data To relay_client
             self.send_data()
-
-
 """
+
+
 class relay_server(threading.Thread):
 
     def __init__(self, ip_addr, port_num, default_gamestate, accelerometer_queue, gamestate_queue):
@@ -166,7 +167,7 @@ class relay_server(threading.Thread):
     def send_data(self):
         success = True
         try:
-            self.gamestate_data = self.gamestate_queue.get()
+            self.gamestate_data = self.gamestate_queue.get_nowait()
             msg = json.dumps(self.gamestate_data)
             msg_length = str(len(msg))+'_'
         except Empty:
@@ -224,6 +225,7 @@ class relay_server(threading.Thread):
     def send_hardware_AI(self):
         # 1 = shooting, 2 = shield, 3 = grenade, 4 = reload
         self.accelerometer_queue.put(self.dataframe)
+        self.accelerometer_queue.get()
         return
 
     def run(self):
@@ -234,26 +236,20 @@ class relay_server(threading.Thread):
 
         while True:
             # Receives Accelerometer Data From relay_client for 1s
-            endTime = datetime.datetime.now() + datetime.timedelta(microseconds=1000)
-            while datetime.datetime.now() <= endTime:
-                try:
-                    self.receive_data()
-                except Empty:
-                    continue
-            
-            print("From relay_server: Accelerometer Data received!")
 
+            self.receive_data()
+            
             # Send dataframe to Hardware AI
             self.send_hardware_AI()
 
-            print("From relay_server: Accelerometer Data sent to Hardware AI!")
+            time.sleep(5)
 
             # Empty Dataframe
             self.dataframe = pd.DataFrame(columns=["player_id", "message_id", "x_data", "y_data", "z_data"])
 
             # Sends GameState Data To relay_client
             self.send_data()
-"""
+
 
 """
 def main():
@@ -274,4 +270,5 @@ def main():
 if __name__ == '__main__':
     main()
 """
+
 

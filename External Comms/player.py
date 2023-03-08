@@ -14,6 +14,7 @@ from multiprocessing import Pipe
 from queue import Empty
 from timeit import default_timer as timer
 
+"""
 class player(threading.Thread):
 
     def __init__(self, player_to_eval_conn):
@@ -269,8 +270,8 @@ class player(threading.Thread):
 
             except Empty:
                 continue
-
 """
+
 class player(threading.Thread):
 
     def __init__(self, eval_to_player_queue, player_to_eval_queue):
@@ -349,7 +350,7 @@ class player(threading.Thread):
         if (self.bullets > 0):
             self.bullets = self.bullets - 1
         
-        self.playerstate = self.get_dict
+        self.playerstate = self.get_dict()
         return
     
     def perform_grenade(self):
@@ -360,7 +361,7 @@ class player(threading.Thread):
         if (self.grenades > 0):
             self.grenades = self.grenades - 1
         
-        self.playerstate = self.get_dict
+        self.playerstate = self.get_dict()
         return
     
     def perform_shield(self):
@@ -368,13 +369,14 @@ class player(threading.Thread):
         self.action = "shield"
 
         # Execute only if there are shields left and no shield is active
-        if ((self.num_shield > 0) and (self.shield_respawn_cooldown == False)):
+        if ((self.num_shield > 0) and (self.shield_respawn_cooldown == False) and (self.shield_activated == False)):
             self.num_shield = self.num_shield - 1
+            self.shield_activated = True
             self.shield_time = self.shield_max_time
             self.shield_health = self.shield_health_max
             self.shield_activate_time = timer()
         
-        self.playerstate = self.get_dict
+        self.playerstate = self.get_dict()
         return
     
     def perform_reload(self):
@@ -385,7 +387,7 @@ class player(threading.Thread):
         if (self.bullets == 0):
             self.bullets = self.magazine_size
         
-        self.playerstate = self.get_dict
+        self.playerstate = self.get_dict()
         return
     
     
@@ -416,7 +418,7 @@ class player(threading.Thread):
             elif self.hp > 10:
                 self.hp = self.hp - 10
 
-        self.playerstate = self.get_dict
+        self.playerstate = self.get_dict()
         return
     
     def grenade_hit(self):
@@ -459,7 +461,12 @@ class player(threading.Thread):
             elif self.hp > 30:
                 self.hp = self.hp - 30
 
-        self.playerstate = self.get_dict
+        self.playerstate = self.get_dict()
+        return
+    
+    def no_apply(self):
+        self.action = "none"
+        self.playerstate = self.get_dict()
         return
 
     def update_shield_timings(self):
@@ -468,7 +475,7 @@ class player(threading.Thread):
             return
         
         current_time = timer()
-        self.shield_time = self.shield_max_time - int(current_time - self.shield_activate_time)
+        self.shield_time = self.shield_max_time - (current_time - self.shield_activate_time)
 
         if self.shield_time <= 0:
             self.shield_activated = False
@@ -478,7 +485,7 @@ class player(threading.Thread):
             self.shield_respawn_time = 10
             self.shield_time = 0
         
-        self.playerstate = self.get_dict
+        self.playerstate = self.get_dict()
         return
     
     def update_respawn_timings(self):
@@ -488,12 +495,12 @@ class player(threading.Thread):
         
         # Only Executed if shield is respawning
         current_time = timer()
-        self.shield_respawn_time = self.max_shield_respawn - int(current_time - self.shield_respawn_starttime)
+        self.shield_respawn_time = self.max_shield_respawn - (current_time - self.shield_respawn_starttime)
 
         if self.shield_respawn_time <= 0:
             self.shield_respawn_cooldown = False
 
-        self.playerstate = self.get_dict
+        self.playerstate = self.get_dict()
         return
 
 
@@ -504,7 +511,6 @@ class player(threading.Thread):
 
             try: 
                 command = self.eval_to_player_queue.get()
-                print("From Player: Performing Action")
 
                 if command == "perform_shoot":
                     self.perform_shoot()
@@ -518,13 +524,14 @@ class player(threading.Thread):
                     self.bullet_hit()
                 elif command == "grenade_hit":
                     self.grenade_hit()
+                elif command == "no_apply":
+                    self.no_apply()
                 
-                print("From Player: Action Complete")
                 self.player_to_eval_queue.put(self.playerstate)
 
             except Empty:
                 continue
-"""
+
 
 
     

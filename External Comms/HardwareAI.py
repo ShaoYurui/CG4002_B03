@@ -13,6 +13,7 @@ from multiprocessing import Pipe
 import datetime
 from queue import Empty
 
+"""
 class HardwareAI(threading.Thread):
 
     def __init__(self, AI_to_relay_conn, AI_to_eval_conn):
@@ -39,8 +40,8 @@ class HardwareAI(threading.Thread):
             self.predict()
             self.AI_to_eval_conn.send(self.prediction)
             print("From Hardware AI: Prediction Sent to eval_client!")
-
 """
+
 class HardwareAI(threading.Thread):
 
     def __init__(self, accelerometer_queue, prediction_queue):
@@ -49,6 +50,7 @@ class HardwareAI(threading.Thread):
         self.dataframe = None
         self.accelerometer_queue = accelerometer_queue
         self.prediction_queue = prediction_queue
+        self.count = 0
         threading.Thread.__init__(self)
 
         return
@@ -62,10 +64,9 @@ class HardwareAI(threading.Thread):
     def run(self):
 
         while True:
-            self.dataframe = self.accelerometer_queue.get()
-            print("From Hardware AI: Accerometer Data received!")
+            #self.dataframe = self.accelerometer_queue.get()
+            self.count = self.count + 1
             self.predict()
             self.prediction_queue.put(self.prediction)
-            print("From Hardware AI: Prediction Sent to eval_client!")
 
-"""
+
