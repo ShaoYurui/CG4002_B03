@@ -12,7 +12,8 @@ import socket
 import threading
 import base64
 import traceback
-from queue import Queue
+from multiprocessing import Queue
+from queue import Empty
 
 import struct
 import curses
@@ -26,6 +27,8 @@ need_n_corrupt = False
 need_better_display = False
 need_write_to_file = False
 
+PLAYER_ID = b'\x01' # \x01 or \x02
+
 ACK = b'\x41'
 NAK = b'\x4E'
 
@@ -35,12 +38,14 @@ ACK_H = b'\x21\x22\x23\x24\x25\x26\x27\x28\x29\x30\x31\x32\x33\x34\x35\x36\x37\x
 nBeetle = 3
 
 mac = list()
-mac.append('80:30:dc:d9:1f:93') # gun x
-#mac.append('34:14:b5:51:d9:04') # gun
-mac.append('34:15:13:22:a1:37') # vest x
-#mac.append('80:30:dc:d9:23:27') # vest
-mac.append('80:30:dc:e9:1c:74') # imu X
-#mac.append('80:30:dc:e9:08:d7') # imu
+if PLAYER_ID == b'\x01':
+    mac.append('80:30:dc:d9:1f:93')  # gun x
+    mac.append('34:15:13:22:a1:37')  # vest x
+    mac.append('80:30:dc:e9:1c:74')  # imu X
+elif PLAYER_ID == b'\x02':
+    mac.append('34:14:b5:51:d9:04') # gun
+    mac.append('80:30:dc:d9:23:27') # vest
+    mac.append('80:30:dc:e9:08:d7') # imu
 
 d = list() #devices list
 c = list() #connection to cloud
@@ -80,8 +85,11 @@ class RelayNode():
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_address = (ip_addr, port_num)
 
-        self.data_to_cloud = 0
-        self.data_to_hw = 0
+        #self.data_to_cloud = 0
+        #self.data_to_hw = 0
+        self.data_to_cloud = Queue()
+        self.data_to_gun = Queue()
+        self.data_to_vest = Queue()
 
 class CommunicationDelegate(btle.DefaultDelegate):
     def __init__(self, pid):
@@ -98,7 +106,6 @@ class CommunicationDelegate(btle.DefaultDelegate):
             buf_len = 40
         if len(d[self.pid].data) >= buf_len:
             indata = d[self.pid].data[0:20]
-            #d[self.pid].data = d[self.pid].data[20:] # handled later
 
             d[self.pid].handshake_done = 1
             if indata == ACK_H:
@@ -145,7 +152,8 @@ class CommunicationDelegate(btle.DefaultDelegate):
                 if need_n_packet_fragmented:
                     d[self.pid].n_time_sent += 1
 
-                c[0].data_to_cloud += indata
+                #c[0].data_to_cloud += indata
+                c[0].data_to_cloud.put(indata)
                 displayOutput(self.pid * info_row, "Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
 
 
@@ -345,6 +353,20 @@ def handleBeetle(i):
                     d[i].connection = 0
             else:  # normal communication
                 # if got data to send to hw
+                try:
+                    if i == 0:
+                        gun_data = c[0].data_to_gun.get_nowait()
+                        if not need_better_display:
+                            print("d[{i}] send data to gun: {bullets}".format(i=i, bullets=gun_data))
+                        #d[i].ch.write(gun_data)
+                    elif i == 1:
+                        vest_data = c[0].data_to_vest.get_nowait()
+                        if not need_better_display:
+                            print("d[{i}] send data to vest: {hp}".format(i=i, hp=best_data))
+                        #d[i].ch.write(vest_data)
+                except Empty:
+                    pass
+
                 #if len(d[i].data_to_hw) > 0:
                 #    d[i].ch.write(d[i].data_to_hw[0])
 
@@ -403,12 +425,27 @@ def convert_to_json(data):
     }
     return json.dumps(packet)
 
+
+def extractMsg(msg):
+    bullets = 6
+    hp = 100
+    if PLAYER_ID == b'\x01':
+        bullets = msg["p1"]["bullets"]
+        hp = msg["p1"]["hp"]
+    elif PLAYER_ID == b'\x02':
+        bullets = msg["p2"]["bullets"]
+        hp = msg["p2"]["hp"]
+
+    c[0].data_to_gun.put(bullets)
+    c[0].data_to_vest.put(hp)
+
+
 def handleConnection():
     ip_addr = '127.0.0.1'
-    port_num = 8079
+    port_num = 8049
     c.append(RelayNode(ip_addr, port_num))
-    c[0].data_to_cloud = bytearray(b'')
-    c[0].data_to_hw = bytearray(b'')
+    c[0].data_to_cloud = Queue()
+    c[0].data_to_hw = Queue()
 
     c[0].socket.connect(c[0].server_address)
 
@@ -416,6 +453,26 @@ def handleConnection():
 
     while True:
         #send data
+        try:
+            msg = convert_to_json(c[0].data_to_cloud.get_nowait())
+            msg_length = str(len(msg)) + '_'
+
+            try:
+                c[0].socket.sendall(msg_length.encode("utf-8"))
+                c[0].socket.sendall(msg.encode("utf-8"))
+                if not need_better_display:
+                    print("Message sent to relay_server!")
+            except OSError:
+                if not need_better_display:
+                    print("connection between relay_client and relay_server lost")
+
+        except Empty:
+            pass
+            #continue
+            #if not need_better_display:
+                #print("Empty Queue")
+
+        '''
         if len(c[0].data_to_cloud) > 0:
             msg = convert_to_json(c[0].data_to_cloud)
             msg_length = str(len(msg)) + '_'
@@ -429,6 +486,7 @@ def handleConnection():
             except OSError:
                 if not need_better_display:
                     print("connection between relay_client and relay_server lost")
+        '''
 
         #receive data
         try:
@@ -470,11 +528,12 @@ def handleConnection():
                     break
                 data += _d
             if len(data) == 0:
-                print('no more data from relay_server')
+                #print('no more data from relay_server')
                 #c[0].stop()
                 continue
             msg = json.loads(data.decode("utf8"))  # Decode raw bytes to UTF-8
             print(msg)
+            #extractMsg(msg)
 
         except BlockingIOError:
             continue
@@ -517,3 +576,4 @@ if __name__ == "__main__":
 
     for t in threads:
         t.start()
+        #t.join() #
