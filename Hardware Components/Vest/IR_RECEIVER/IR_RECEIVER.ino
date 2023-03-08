@@ -14,7 +14,7 @@
 #define PLAYER1_IR_SIGNAL_COMMAND   0x96
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// GAME STATUS VARIABELS ///////////////////////////////////                                      
-int health_pt = 100;
+int health_pt = 10;
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// LED STRIPS VARIABELS ////////////////////////////////////                                    
 CRGB leds[NUM_LEDS];
@@ -54,7 +54,7 @@ void loop()
       (IrReceiver.decodedIRData.command == PLAYER1_IR_SIGNAL_COMMAND))
     {
       health_bar_blink();
-      health_pt -= 10; 
+      health_pt -= 1; 
     }
     IrReceiver.resume(); // Important, enables to receive the next IR signal
   }  
@@ -92,12 +92,12 @@ void health_bar_blink()
 void health_bar_display(int hp)
 {
   hp = get_processed_hp(hp);
-
-  int num_led_up = 1.0f * hp / 100 * NUM_LEDS;
-  int red_value =  1.0f * (100 - hp) / 100 * 255;
-  int green_value = 1.0f * hp / 100 * 255;
+  Serial.println(hp);
+  int num_led_up = 1.0f * hp / 10 * NUM_LEDS;
+  int red_value =  1.0f * (10 - hp) / 10 * 255;
+  int green_value = 1.0f * hp / 10 * 255;
   
-  if(hp == 10)
+  if(hp == 1)
   {
     led_strips_display(1,255,0,0);
     return;
@@ -116,7 +116,7 @@ int get_processed_hp(int hp)
   {
     return 0;
   }
-  return (hp / 10 * 10);
+  return hp;
 }
 
 void led_strips_display(int num, int R, int G, int B)
