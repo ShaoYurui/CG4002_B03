@@ -127,7 +127,7 @@ void led_strips_display(int num, int R, int G, int B)
   }
   for(int i=num; i<NUM_LEDS; i++)
   {
-    leds[i] = CRGB(R,G,B);
+    leds[i] = CRGB(0,0,0);
   }
   FastLED.show();
 }
