@@ -470,8 +470,9 @@ def handleConnection():
                     print("connection between relay_client and relay_server lost")
 
         except Empty:
-            pass
-            #continue
+            print("empty!!!!!!!!!!!!!!!")
+            #pass
+            continue
             #if not need_better_display:
                 #print("Empty Queue")
 
@@ -535,11 +536,11 @@ def handleConnection():
                 #c[0].stop()
                 continue
             msg = json.loads(data.decode("utf8"))  # Decode raw bytes to UTF-8
-            #print(msg)
+            print(msg)
             extractMsg(msg)
 
-        #except BlockingIOError:
-        #    continue
+        except BlockingIOError:
+            continue
 
         except ConnectionResetError:
             print('Connection Reset')
