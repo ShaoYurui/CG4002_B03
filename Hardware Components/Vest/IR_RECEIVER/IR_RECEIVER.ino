@@ -43,9 +43,12 @@ void setup()
 void loop()  
 {  
   if (Serial.available()) {
-    if (Serial.read() == REQUEST_H) {
+    uint8_t indata = Serial.read();
+    if (indata == REQUEST_H) {
       printHandshakeAck();
       handshake_done = true;
+    } else { //receive hp
+      health_pt = int(indata)/10;
     }
   }
   
@@ -54,7 +57,7 @@ void loop()
       (IrReceiver.decodedIRData.command == PLAYER1_IR_SIGNAL_COMMAND))
     {
       health_bar_blink();
-      health_pt -= 1; 
+      //health_pt -= 1; //hp depend on gamestate
     }
     IrReceiver.resume(); // Important, enables to receive the next IR signal
   }  

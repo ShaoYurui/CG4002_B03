@@ -34,10 +34,15 @@ void loop()
 {  
   if (Serial.available()) 
   {
-    if (Serial.read() == REQUEST_H) 
+    uint8_t indata = Serial.read();
+    if (indata == REQUEST_H) 
     {
       printHandshakeAck();
       handshake_done = true;
+    }
+    else //receive bullet count
+    {
+      ammo_count = int(indata); //see incoming data
     }
   }
 }  
@@ -115,7 +120,7 @@ void sound_space_gun()
     digitalWrite(BUZZER_PIN, LOW);
     delayMicroseconds(j);
   }
-  ammo_count = ammo_count - 1;
+  //ammo_count = ammo_count - 1; //use ammo count from game state only
 }
 
 void button_isr()
