@@ -110,8 +110,8 @@ class CommunicationDelegate(btle.DefaultDelegate):
             d[self.pid].handshake_done = 1
             if indata == ACK_H:
                 displayOutput(self.pid * info_row, "Device[{id}] handshake ACK received".format(id=self.pid))
-                if not self.pid == 2:  # no ack for imu
-                    d[self.pid].ch.write(ACK)
+                #if not self.pid == 2:  # no ack for imu
+                    #d[self.pid].ch.write(ACK)
 
                 if need_elapsed_time:
                     if d[self.pid].start_time == 0:
@@ -172,8 +172,8 @@ class CommunicationDelegate(btle.DefaultDelegate):
                 if need_elapsed_time:
                     displayOutput(self.pid*info_row+3, "Elapsed time: {time}".format(time=time.time()-d[self.pid].start_time))
 
-                if not self.pid == 2: #no ack for imu
-                    d[self.pid].ch.write(ACK)
+                #if not self.pid == 2: #no ack for imu
+                    #d[self.pid].ch.write(ACK)
 
 if need_write_to_file:
     def writeToFile(filename, indata):
@@ -358,12 +358,14 @@ def handleBeetle(i):
                         gun_data = c[0].data_to_gun.get_nowait()
                         if not need_better_display:
                             print("d[{i}] send data to gun: {bullets}".format(i=i, bullets=gun_data))
-                        #d[i].ch.write(gun_data)
+                        gun_data_b = gun_data.to_bytes(1, 'big')
+                        d[i].ch.write(gun_data_b)
                     elif i == 1:
                         vest_data = c[0].data_to_vest.get_nowait()
                         if not need_better_display:
                             print("d[{i}] send data to vest: {hp}".format(i=i, hp=best_data))
-                        #d[i].ch.write(vest_data)
+                        vest_data_b = vest_data.to_bytes(1, 'big')
+                        d[i].ch.write(vest_data_b)
                 except Empty:
                     pass
 
@@ -436,6 +438,7 @@ def extractMsg(msg):
         bullets = msg["p2"]["bullets"]
         hp = msg["p2"]["hp"]
 
+    print("bullet={b}, hp={v}".format(b=bullets, v=hp))
     c[0].data_to_gun.put(bullets)
     c[0].data_to_vest.put(hp)
 
@@ -449,7 +452,7 @@ def handleConnection():
 
     c[0].socket.connect(c[0].server_address)
 
-    c[0].socket.setblocking(0)
+    #c[0].socket.setblocking(0)
 
     while True:
         #send data
@@ -490,7 +493,7 @@ def handleConnection():
 
         #receive data
         try:
-            c[0].socket.setblocking(0)
+            #c[0].socket.setblocking(0)
             data = b''
             while True:
                 _d = c[0].socket.recv(1)
@@ -519,7 +522,7 @@ def handleConnection():
             data = data.decode("utf-8")
             length = int(data)
 
-            c[0].socket.setblocking(1)
+            #c[0].socket.setblocking(1)
             data = b''
             while len(data) < length:
                 _d = c[0].socket.recv(length - len(data))
@@ -532,11 +535,11 @@ def handleConnection():
                 #c[0].stop()
                 continue
             msg = json.loads(data.decode("utf8"))  # Decode raw bytes to UTF-8
-            print(msg)
-            #extractMsg(msg)
+            #print(msg)
+            extractMsg(msg)
 
-        except BlockingIOError:
-            continue
+        #except BlockingIOError:
+        #    continue
 
         except ConnectionResetError:
             print('Connection Reset')
