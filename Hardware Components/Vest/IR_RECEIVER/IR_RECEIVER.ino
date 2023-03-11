@@ -15,6 +15,8 @@
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// GAME STATUS VARIABELS ///////////////////////////////////                                      
 int health_pt = 10;
+int shield_pt = 0;
+bool is_shield_activated = false;
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// LED STRIPS VARIABELS ////////////////////////////////////                                    
 CRGB leds[NUM_LEDS];
@@ -38,17 +40,23 @@ void setup()
   IrReceiver.begin(PIN_RECV); // Initializes the IR receiver object
   health_bar_setup();
   pinMode(LED_PIN, OUTPUT);
+  health_bar_display(10);
 }  
                                
 void loop()  
 {  
-  if (Serial.available()) {
+  if (Serial.available()) 
+  {
     uint8_t indata = Serial.read();
-    if (indata == REQUEST_H) {
+    if (indata == REQUEST_H) 
+    {
       printHandshakeAck();
       handshake_done = true;
-    } else { //receive hp
-      health_pt = int(indata)/10;
+    } 
+    else if (is_valid_data(indata))
+    { //receive hp
+      set_health_pt(indata);
+      health_bar_display(health_pt);
     }
   }
   
@@ -57,14 +65,34 @@ void loop()
       (IrReceiver.decodedIRData.command == PLAYER1_IR_SIGNAL_COMMAND))
     {
       health_bar_blink();
-      //health_pt -= 1; //hp depend on gamestate
     }
     IrReceiver.resume(); // Important, enables to receive the next IR signal
   }  
-  health_bar_display(health_pt);
 }  
 /////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////// LED STRIPS FUNTIONS DEFINES/////////////////////////////
+
+void set_health_pt(uint8_t data)
+{
+  // 0 00 0000 0
+  shield_pt = (data >> 5) & 0b011;
+  health_pt = (data >> 1) & 0b0001111;
+
+  is_shield_activated = false;
+  if (shield_pt > 0)
+  {
+    is_shield_activated = true;
+  }
+}
+
+bool is_valid_data(uint8_t data)
+{
+  if((data >> 7) == 1)
+  {
+    return true;
+  }
+  return false;
+}
 
 void health_bar_setup()
 {
@@ -92,8 +120,18 @@ void health_bar_blink()
   }
 }
 
+void shield_bar_display(int hp)
+{
+  led_strips_display(hp*2,0,0,255);
+}
+
 void health_bar_display(int hp)
 {
+  if (is_shield_activated)
+  {
+    shield_bar_display(shield_pt);
+    return;
+  }
   hp = get_processed_hp(hp);
   Serial.println(hp);
   int num_led_up = 1.0f * hp / 10 * NUM_LEDS;
