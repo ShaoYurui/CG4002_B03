@@ -40,12 +40,21 @@ void loop()
       printHandshakeAck();
       handshake_done = true;
     }
-    else //receive bullet count
-    {
+    else if (is_valid_data(indata))
+    { //receive bullet count
       ammo_count = int(indata); //see incoming data
     }
   }
 }  
+
+bool is_valid_data(uint8_t data)
+{
+  if((data >> 7) == 1)
+  {
+    return true;
+  }
+  return false;
+}
 
 void disable_isr()
 {
