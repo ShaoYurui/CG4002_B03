@@ -15,6 +15,8 @@
 /////////////////////////////////// GAME STATUS VARIABELS ///////////////////////////////////                                      
 int health_pt = 10;
 int shield_pt = 0;
+int prev_health_pt = health_pt;
+int prev_shield_pt = shield_pt;
 bool is_shield_activated = false;
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// LED STRIPS VARIABELS ////////////////////////////////////                                    
@@ -45,7 +47,7 @@ void setup()
   IrReceiver.begin(PIN_RECV); // Initializes the IR receiver object
   health_bar_setup();
   pinMode(LED_PIN, OUTPUT);
-  health_bar_display(10);
+  health_bar_display();
 }  
                                
 void loop()  
@@ -61,16 +63,16 @@ void loop()
     else if (is_valid_data(indata))
     { //receive hp
       set_health_pt(indata);
-      health_bar_display(health_pt);
+      health_bar_display();
     }
   }
-  
+  //0b101010101
   if (IrReceiver.decode()) {
     if((IrReceiver.decodedIRData.address == PLAYER1_IR_SIGNAL_ADDRESS) && 
       (IrReceiver.decodedIRData.command == SHOOTER_ID))
     {
       send_data();
-      health_bar_blink();
+      health_bar_blink(1);
     }
     IrReceiver.resume(); // Important, enables to receive the next IR signal
   }  
@@ -107,9 +109,9 @@ void health_bar_setup()
   digitalWrite(LED_POWER, HIGH);
 }
 
-void health_bar_blink()
+void health_bar_blink(int n)
 {
-  for (int i=0; i<3; i++)
+  for (int i=0; i<n; i++)
   {
     for(int j=0;j<NUM_LEDS;j++)
     {
@@ -131,15 +133,20 @@ void shield_bar_display(int hp)
   led_strips_display(hp*2,0,0,255);
 }
 
-void health_bar_display(int hp)
+void health_bar_display()
 {
+  if ((prev_health_pt != health_pt) || (prev_shield_pt != shield_pt))
+  {
+    prev_health_pt = health_pt;
+    prev_shield_pt = shield_pt;
+    health_bar_blink(2);
+  }
   if (is_shield_activated)
   {
     shield_bar_display(shield_pt);
     return;
   }
-  hp = get_processed_hp(hp);
-  Serial.println(hp);
+  int hp = get_processed_hp(health_pt);
   int num_led_up = 1.0f * hp / 10 * NUM_LEDS;
   int red_value =  1.0f * (10 - hp) / 10 * 255;
   int green_value = 1.0f * hp / 10 * 255;
