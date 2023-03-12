@@ -154,7 +154,7 @@ class CommunicationDelegate(btle.DefaultDelegate):
 
                 #c[0].data_to_cloud += indata
                 c[0].data_to_cloud.put(indata)
-                displayOutput(self.pid * info_row, "Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
+                ###displayOutput(self.pid * info_row, "Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
 
 
                 ###if need_n_packet_received:
@@ -425,7 +425,7 @@ def extractMsg(msg):
 
     bullets = (bullets << 4) | 128
     hp = ((shield << 5) + (hp << 1)) | 128
-    print("bullet = {b}".format(b=hex(b)))
+    print("bullet = {b}".format(b=hex(bullets)))
     print("shield+hp = {sh}".format(sh=hex(hp)))
     c[0].data_to_gun.put(getCs(bullets))
     c[0].data_to_vest.put(getCs(hp))
@@ -447,15 +447,19 @@ def handleConnection():
     c.append(RelayNode(ip_addr, port_num))
     c[0].data_to_cloud = Queue()
     c[0].data_to_hw = Queue()
+    c[0].data_to_gun = Queue()
+    c[0].data_to_vest = Queue()
 
     c[0].socket.connect(c[0].server_address)
 
     #c[0].socket.setblocking(0)
 
     while True:
+        print("HANDLE CONNECTION")
         #send data
         try:
             msg = convert_to_json(c[0].data_to_cloud.get_nowait())
+            print(msg)
             msg_length = str(len(msg)) + '_'
 
             try:
