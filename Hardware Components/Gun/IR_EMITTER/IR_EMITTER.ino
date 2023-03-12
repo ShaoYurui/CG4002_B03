@@ -4,7 +4,6 @@
 #define SEND_PIN 3
 #define BUZZER_PIN 4
 
-#define PLAY1_IR_SIGNAL 0x96
 #define PLAY1_IR_ADDRES 0x1103
 #define BAUD_RATE 115200
 
@@ -34,13 +33,32 @@ void loop()
 {  
   if (Serial.available()) 
   {
-    if (Serial.read() == REQUEST_H) 
+    uint8_t indata = Serial.read();
+    if (indata == REQUEST_H) 
     {
       printHandshakeAck();
       handshake_done = true;
     }
+    else if (is_valid_data(indata))
+    { //receive bullet count
+      ammo_count = get_ammo_count(indata); //see incoming data
+    }
   }
 }  
+
+bool is_valid_data(uint8_t data)
+{
+  if((data >> 7) == 1)
+  {
+    return true;
+  }
+  return false;
+}
+
+int get_ammo_count(uint8_t data)
+{
+  return ((data >> 4) & 0b0111);
+}
 
 void disable_isr()
 {
@@ -115,7 +133,7 @@ void sound_space_gun()
     digitalWrite(BUZZER_PIN, LOW);
     delayMicroseconds(j);
   }
-  ammo_count = ammo_count - 1;
+  //ammo_count = ammo_count - 1; //use ammo count from game state only
 }
 
 void button_isr()
@@ -131,7 +149,7 @@ void shoot_IR()
 {
   if(ammo_count > 0)
   {
-    IrSender.sendNEC(PLAY1_IR_ADDRES, PLAY1_IR_SIGNAL, true);  
+    IrSender.sendNEC(PLAY1_IR_ADDRES, PLAYER_ID, true);  
   }
 }
 
