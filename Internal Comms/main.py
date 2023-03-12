@@ -434,16 +434,16 @@ def extractMsg(msg):
     #default value
     bullets = 6
     hp = 10
-    shield = 2 #for testing only
+    shield = 0 #for testing only
 
     if PLAYER_ID == b'\x01':
         bullets = msg["p1"]["bullets"]
         hp = int(msg["p1"]["hp"] / 10)
-        #shield = int(msg["p1"]["shield_health"] / 10)
+        shield = int(msg["p1"]["shield_health"] / 10)
     elif PLAYER_ID == b'\x02':
         bullets = msg["p2"]["bullets"]
         hp = int(msg["p2"]["hp"] /10)
-        #shield = int(msg["p2"]["shield_health"] / 10)
+        shield = int(msg["p2"]["shield_health"] / 10)
 
     print("bullet={b}, hp={v}, shield={s}".format(b=bullets, v=hp, s=shield))
 
