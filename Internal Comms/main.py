@@ -122,7 +122,7 @@ class CommunicationDelegate(btle.DefaultDelegate):
                 if not verifyValidData(self.pid):
                     indata = d[self.pid].data[0:20]
                     if not need_better_display:
-                        print("Device[{id}] received invalid data".format(id=self.pid))
+                        print("Device[{id}] received invalid data: {dat}".format(id=self.pid, dat=indata.hex()))
                     if need_n_corrupt:
                         d[self.pid].error_count += 1
                     if need_n_packet_fragmented:
@@ -154,7 +154,7 @@ class CommunicationDelegate(btle.DefaultDelegate):
 
                 #c[0].data_to_cloud += indata
                 c[0].data_to_cloud.put(indata)
-                ###displayOutput(self.pid * info_row, "Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
+                displayOutput(self.pid * info_row, "Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
 
 
                 ###if need_n_packet_received:
@@ -274,30 +274,6 @@ def handleBeetle(i):
 
     while True:
         try:
-            '''
-            if need_n_corrupt:
-                if d[i].error_count >= 5:
-                    print("Device[%d] have received more than 5 corrupted packets, restarting" % i)
-                    d[i].peripheral.disconnect()
-                    d[i].svc = 0
-                    d[i].ch = 0
-                    d[i].setup = 0
-                    d[i].connection = 0
-                    d[i].handshake_start = 0
-                    d[i].handshake_done = 0
-                    d[i].data = bytearray(b'')
-                    d[i].error_count = 0
-                    if need_elapsed_time:
-                        self.start_time = 0
-                    if need_n_packet_received:
-                        self.n_packet_received = 0
-                    if need_n_packet_fragmented:
-                        self.n_time_received = -1  # don't count first packet (handshake ack)
-                        self.n_time_sent = 0
-                    if need_n_packet_loss:
-                        self.n_packet_loss = 0
-                        self.prev_msg_id = -1
-            '''
             if d[i].setup == 0: #check setup
                 displayOutput(i*info_row, "Try setting up device[{id}] again".format(id=i))
                 try:
@@ -368,7 +344,7 @@ def handleBeetle(i):
                         vest_data_b = vest_data.to_bytes(1, 'big')
                         d[i].ch.write(vest_data_b)
                 except Empty:
-                    print("EMPTY DATA LINE 370")
+                    #print("EMPTY DATA LINE 370")
                     pass
 
                 #if len(d[i].data_to_hw) > 0:
@@ -445,13 +421,14 @@ def extractMsg(msg):
         hp = int(msg["p2"]["hp"] /10)
         shield = int(msg["p2"]["shield_health"] / 10)
 
-    print("bullet={b}, hp={v}, shield={s}".format(b=bullets, v=hp, s=shield))
+    print("bullet={b}, hp={v}, shield_health={s}".format(b=bullets, v=hp, s=shield))
 
     bullets = (bullets << 4) | 128
     hp = ((shield << 5) + (hp << 1)) | 128
+    print("bullet = {b}".format(b=hex(b)))
     print("shield+hp = {sh}".format(sh=hex(hp)))
-    c[0].data_to_gun.put(bullets)
-    c[0].data_to_vest.put(hp)
+    c[0].data_to_gun.put(getCs(bullets))
+    c[0].data_to_vest.put(getCs(hp))
 
 
 def getCs(inByte):
