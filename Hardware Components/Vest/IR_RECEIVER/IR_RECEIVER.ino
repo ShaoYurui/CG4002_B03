@@ -11,7 +11,6 @@
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// IR SIGNAL DEFINES ///////////////////////////////////////                                      
 #define PLAYER1_IR_SIGNAL_ADDRESS   0x1103
-#define PLAYER1_IR_SIGNAL_COMMAND   0x96
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// GAME STATUS VARIABELS ///////////////////////////////////                                      
 int health_pt = 10;
@@ -26,6 +25,12 @@ CRGB leds[NUM_LEDS];
 #define PLAYER_ID              0x01 //0x01 or 0x02
 #define PAD_BYTE               0x00
 #define REQUEST_H              0x48
+#if (PLAYER_ID==0x01)
+#define SHOOTER_ID             0x02
+#endif
+#if (PLAYER_ID==0x02)
+#define SHOOTER_ID             0x01
+#endif
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// COMMUNICATION VARIABLES /////////////////////////////////
 int message_id = 0;
@@ -62,8 +67,9 @@ void loop()
   
   if (IrReceiver.decode()) {
     if((IrReceiver.decodedIRData.address == PLAYER1_IR_SIGNAL_ADDRESS) && 
-      (IrReceiver.decodedIRData.command == PLAYER1_IR_SIGNAL_COMMAND))
+      (IrReceiver.decodedIRData.command == SHOOTER_ID))
     {
+      send_data();
       health_bar_blink();
     }
     IrReceiver.resume(); // Important, enables to receive the next IR signal

@@ -4,7 +4,6 @@
 #define SEND_PIN 3
 #define BUZZER_PIN 4
 
-#define PLAY1_IR_SIGNAL 0x96
 #define PLAY1_IR_ADDRES 0x1103
 #define BAUD_RATE 115200
 
@@ -150,7 +149,7 @@ void shoot_IR()
 {
   if(ammo_count > 0)
   {
-    IrSender.sendNEC(PLAY1_IR_ADDRES, PLAY1_IR_SIGNAL, true);  
+    IrSender.sendNEC(PLAY1_IR_ADDRES, PLAYER_ID, true);  
   }
 }
 
