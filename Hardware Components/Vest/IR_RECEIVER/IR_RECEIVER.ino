@@ -1,5 +1,8 @@
 #include <IRremote.h> // >v3.0.0
 #include <FastLED.h>
+/////////////////////////////////// PLAYER DEFINES ////////////////////////////////////////// 
+#define PLAYER_ID              0x02 //0x01 or 0x02
+/////////////////////////////////// LED STRIPS DEFINES ////////////////////////////////////// 
 /////////////////////////////////// SERIAL DEFINES //////////////////////////////////////////                                      
 #define BAUD_RATE                   115200
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -15,8 +18,8 @@
 /////////////////////////////////// GAME STATUS VARIABELS ///////////////////////////////////                                      
 int health_pt = 10;
 int shield_pt = 0;
-int prev_health_pt = health_pt;
-int prev_shield_pt = shield_pt;
+int prev_health_pt = 0;
+int prev_shield_pt = 0;
 bool is_shield_activated = false;
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// LED STRIPS VARIABELS ////////////////////////////////////                                    
@@ -24,7 +27,6 @@ CRGB leds[NUM_LEDS];
 /////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////// COMMUNICATION DEFINES ///////////////////////////////////
 #define VEST_DATA              0x05
-#define PLAYER_ID              0x01 //0x01 or 0x02
 #define PAD_BYTE               0x00
 #define REQUEST_H              0x48
 #if (PLAYER_ID==0x01)
@@ -66,7 +68,7 @@ void loop()
       health_bar_display();
     }
   }
-  //0b101010101
+
   if (IrReceiver.decode()) {
     if((IrReceiver.decodedIRData.address == PLAYER1_IR_SIGNAL_ADDRESS) && 
       (IrReceiver.decodedIRData.command == SHOOTER_ID))
@@ -140,6 +142,10 @@ void health_bar_display()
     prev_health_pt = health_pt;
     prev_shield_pt = shield_pt;
     health_bar_blink(2);
+  }
+  else
+  {
+    return ;
   }
   if (is_shield_activated)
   {
