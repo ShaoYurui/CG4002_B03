@@ -154,7 +154,7 @@ class CommunicationDelegate(btle.DefaultDelegate):
 
                 #c[0].data_to_cloud += indata
                 c[0].data_to_cloud.put(indata)
-                ###displayOutput(self.pid * info_row, "Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
+                #displayOutput(self.pid * info_row, "Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
 
 
                 ###if need_n_packet_received:
@@ -329,31 +329,30 @@ def handleBeetle(i):
                     d[i].connection = 0
             else:  # normal communication
                 # if got data to send to hw
-                print("NORMAL COMM on {n}".format(n=i))
+                #print("NORMAL COMM on {n}".format(n=i))
                 try:
                     if i == 0:
+                        print("d[{i}] prepare data to gun".format(i=i))
                         gun_data = c[0].data_to_gun.get_nowait()
                         if not need_better_display:
                             print("d[{i}] send data to gun: {bullets}".format(i=i, bullets=gun_data))
                         gun_data_b = gun_data.to_bytes(1, 'big')
                         d[i].ch.write(gun_data_b)
                     elif i == 1:
+                        print("d[{i}] prepare data to vest".format(i=i))
                         vest_data = c[0].data_to_vest.get_nowait()
                         if not need_better_display:
                             print("d[{i}] send data to vest: {hp}".format(i=i, hp=vest_data))
                         vest_data_b = vest_data.to_bytes(1, 'big')
                         d[i].ch.write(vest_data_b)
                 except Empty:
-                    #print("EMPTY DATA LINE 370")
+                    print("EMPTY DATA TO HW")
                     pass
-
-                #if len(d[i].data_to_hw) > 0:
-                #    d[i].ch.write(d[i].data_to_hw[0])
 
                 ###if not need_better_display:
                  ###   displayOutput(i * info_row, "Device[{id}] waiting...".format(id=i))
                 try:
-                    d[i].peripheral.waitForNotifications(1.0)
+                    d[i].peripheral.waitForNotifications(0.02)
                 except btle.BTLEDisconnectError:
                     displayOutput(i * info_row, "Device[{id}] disconnected".format(id=i))
                     d[i].connection = 0
@@ -376,34 +375,41 @@ def handleBeetle(i):
             d[i].handshake_done = 0
             d[i].data = bytearray(b'')
             if need_elapsed_time:
-                self.start_time = 0
+                d[i].start_time = 0
 
             if need_n_packet_received:
-                self.n_packet_received = 0
+                d[i].n_packet_received = 0
 
             if need_n_packet_fragmented:
-                self.n_time_received = -1
-                self.n_time_sent = 0
+                d[i].n_time_received = -1
+                d[i].n_time_sent = 0
 
             if need_n_packet_loss:
-                self.n_packet_loss = 0
-                self.prev_msg_id = 0
+                d[i].n_packet_loss = 0
+                d[i].prev_msg_id = 0
 
 
 def convert_to_json(data):
-    packet = {
-        "message_type": struct.unpack('>B', data[0:1])[0],
-        "message_id": struct.unpack('>B', data[1:2])[0],
-        "player_id": struct.unpack('>B', data[2:3])[0],
-        "acc_x": struct.unpack('>h', data[7:9])[0],
-        "acc_y": struct.unpack('>h', data[9:11])[0],
-        "acc_z": struct.unpack('>h', data[11:13])[0],
-        "gyro_x": struct.unpack('>h', data[13:15])[0],
-        "gyro_y": struct.unpack('>h', data[15:17])[0],
-        "gyro_z": struct.unpack('>h', data[17:19])[0],
-        "timestamp": struct.unpack('>L', data[3:7])[0]
-    }
-    return json.dumps(packet)
+    try:
+        packet = {
+            "message_type": struct.unpack('>B', data[0:1])[0],
+            "message_id": struct.unpack('>B', data[1:2])[0],
+            "player_id": struct.unpack('>B', data[2:3])[0],
+            "acc_x": struct.unpack('>h', data[7:9])[0],
+            "acc_y": struct.unpack('>h', data[9:11])[0],
+            "acc_z": struct.unpack('>h', data[11:13])[0],
+            "gyro_x": struct.unpack('>h', data[13:15])[0],
+            "gyro_y": struct.unpack('>h', data[15:17])[0],
+            "gyro_z": struct.unpack('>h', data[17:19])[0],
+            "timestamp": struct.unpack('>L', data[3:7])[0]
+        }
+
+        if packet["message_type"] != 6:
+            print(packet)
+        return json.dumps(packet)
+
+    except struct.error:
+        print(data)
 
 
 def extractMsg(msg):
@@ -425,10 +431,14 @@ def extractMsg(msg):
 
     bullets = (bullets << 4) | 128
     hp = ((shield << 5) + (hp << 1)) | 128
+
+    #d[0].ch.write(bullets.to_bytes(1, 'big'))
+    #d[1].ch.write(hp.to_bytes(1, 'big'))
+
     print("bullet = {b}".format(b=hex(bullets)))
     print("shield+hp = {sh}".format(sh=hex(hp)))
-    c[0].data_to_gun.put(getCs(bullets))
-    c[0].data_to_vest.put(getCs(hp))
+    c[0].data_to_gun.put(bullets)
+    c[0].data_to_vest.put(hp)
 
 
 def getCs(inByte):
@@ -452,35 +462,35 @@ def handleConnection():
 
     c[0].socket.connect(c[0].server_address)
 
-    #c[0].socket.setblocking(0)
+    c[0].socket.setblocking(0)
 
     while True:
-        print("HANDLE CONNECTION")
+        #print("HANDLE CONNECTION")
         #send data
         try:
             msg = convert_to_json(c[0].data_to_cloud.get_nowait())
-            print(msg)
+            #print(msg)
             msg_length = str(len(msg)) + '_'
 
             try:
                 c[0].socket.sendall(msg_length.encode("utf-8"))
                 c[0].socket.sendall(msg.encode("utf-8"))
-                if not need_better_display:
-                    print("Message sent to relay_server!")
+                #if not need_better_display:
+                    #print("Message sent to relay_server!")
             except OSError:
                 if not need_better_display:
                     print("connection between relay_client and relay_server lost")
 
         except Empty:
             #print("empty!!!!!!!!!!!!!!!")
-            #pass
-            continue
+            pass
+            #continue
             #if not need_better_display:
                 #print("Empty Queue")
 
         #receive data
         try:
-            #c[0].socket.setblocking(0)
+            c[0].socket.setblocking(0)
             data = b''
             while True:
                 _d = c[0].socket.recv(1)
@@ -509,7 +519,7 @@ def handleConnection():
             data = data.decode("utf-8")
             length = int(data)
 
-            #c[0].socket.setblocking(1)
+            c[0].socket.setblocking(1)
             data = b''
             while len(data) < length:
                 _d = c[0].socket.recv(length - len(data))
@@ -522,7 +532,7 @@ def handleConnection():
                 #c[0].stop()
                 continue
             msg = json.loads(data.decode("utf8"))  # Decode raw bytes to UTF-8
-            print(msg)
+            #print(msg)
             extractMsg(msg)
 
         except BlockingIOError:
