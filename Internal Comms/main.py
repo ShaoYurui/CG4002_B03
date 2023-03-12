@@ -27,7 +27,7 @@ need_n_corrupt = False
 need_better_display = False
 need_write_to_file = False
 
-PLAYER_ID = b'\x01' # \x01 or \x02
+PLAYER_ID = b'\x02' # \x01 or \x02
 
 ACK = b'\x41'
 NAK = b'\x4E'
@@ -154,11 +154,11 @@ class CommunicationDelegate(btle.DefaultDelegate):
 
                 #c[0].data_to_cloud += indata
                 c[0].data_to_cloud.put(indata)
-                displayOutput(self.pid * info_row, "Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
+                ###displayOutput(self.pid * info_row, "Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
 
 
-                if need_n_packet_received:
-                    displayOutput(self.pid * info_row + 1, "Device[{id}] have received {n} packets".format(id=self.pid, n=d[self.pid].n_packet_received))
+                ###if need_n_packet_received:
+                    ###displayOutput(self.pid * info_row + 1, "Device[{id}] have received {n} packets".format(id=self.pid, n=d[self.pid].n_packet_received))
 
                 if need_n_corrupt:
                     displayOutput(self.pid * info_row + 2, "Device[{id}] have received {n} corrupted packets".format(id=self.pid, n=d[self.pid].error_count))
@@ -169,8 +169,8 @@ class CommunicationDelegate(btle.DefaultDelegate):
                 if need_n_packet_loss:
                     displayOutput(self.pid*info_row+4, "Device[{id}] have {n} packets loss".format(id=self.pid, n=d[self.pid].n_packet_loss))
 
-                if need_elapsed_time:
-                    displayOutput(self.pid*info_row+3, "Elapsed time: {time}".format(time=time.time()-d[self.pid].start_time))
+                ###if need_elapsed_time:
+                    ###displayOutput(self.pid*info_row+3, "Elapsed time: {time}".format(time=time.time()-d[self.pid].start_time))
 
                 #if not self.pid == 2: #no ack for imu
                     #d[self.pid].ch.write(ACK)
@@ -353,6 +353,7 @@ def handleBeetle(i):
                     d[i].connection = 0
             else:  # normal communication
                 # if got data to send to hw
+                print("NORMAL COMM on {n}".format(n=i))
                 try:
                     if i == 0:
                         gun_data = c[0].data_to_gun.get_nowait()
@@ -363,17 +364,18 @@ def handleBeetle(i):
                     elif i == 1:
                         vest_data = c[0].data_to_vest.get_nowait()
                         if not need_better_display:
-                            print("d[{i}] send data to vest: {hp}".format(i=i, hp=best_data))
+                            print("d[{i}] send data to vest: {hp}".format(i=i, hp=vest_data))
                         vest_data_b = vest_data.to_bytes(1, 'big')
                         d[i].ch.write(vest_data_b)
                 except Empty:
+                    print("EMPTY DATA LINE 370")
                     pass
 
                 #if len(d[i].data_to_hw) > 0:
                 #    d[i].ch.write(d[i].data_to_hw[0])
 
-                if not need_better_display:
-                    displayOutput(i * info_row, "Device[{id}] waiting...".format(id=i))
+                ###if not need_better_display:
+                 ###   displayOutput(i * info_row, "Device[{id}] waiting...".format(id=i))
                 try:
                     d[i].peripheral.waitForNotifications(1.0)
                 except btle.BTLEDisconnectError:
@@ -429,18 +431,37 @@ def convert_to_json(data):
 
 
 def extractMsg(msg):
+    #default value
     bullets = 6
-    hp = 100
+    hp = 10
+    shield = 2 #for testing only
+
     if PLAYER_ID == b'\x01':
         bullets = msg["p1"]["bullets"]
-        hp = msg["p1"]["hp"]
+        hp = int(msg["p1"]["hp"] / 10)
+        #shield = int(msg["p1"]["shield_health"] / 10)
     elif PLAYER_ID == b'\x02':
         bullets = msg["p2"]["bullets"]
-        hp = msg["p2"]["hp"]
+        hp = int(msg["p2"]["hp"] /10)
+        #shield = int(msg["p2"]["shield_health"] / 10)
 
-    print("bullet={b}, hp={v}".format(b=bullets, v=hp))
+    print("bullet={b}, hp={v}, shield={s}".format(b=bullets, v=hp, s=shield))
+
+    bullets = (bullets << 4) | 128
+    hp = ((shield << 5) + (hp << 1)) | 128
+    print("shield+hp = {sh}".format(sh=hex(hp)))
     c[0].data_to_gun.put(bullets)
     c[0].data_to_vest.put(hp)
+
+
+def getCs(inByte):
+    cs = 0
+    for i in range(8):
+        cs ^= (inByte << i)
+
+    cs &= 1
+    return inByte | cs
+
 
 
 def handleConnection():
@@ -470,27 +491,11 @@ def handleConnection():
                     print("connection between relay_client and relay_server lost")
 
         except Empty:
-            print("empty!!!!!!!!!!!!!!!")
+            #print("empty!!!!!!!!!!!!!!!")
             #pass
             continue
             #if not need_better_display:
                 #print("Empty Queue")
-
-        '''
-        if len(c[0].data_to_cloud) > 0:
-            msg = convert_to_json(c[0].data_to_cloud)
-            msg_length = str(len(msg)) + '_'
-            c[0].data_to_cloud = c[0].data_to_cloud[20:]
-
-            try:
-                c[0].socket.sendall(msg_length.encode("utf-8"))
-                c[0].socket.sendall(msg.encode("utf-8"))
-                if not need_better_display:
-                    print("Message sent to relay_server!")
-            except OSError:
-                if not need_better_display:
-                    print("connection between relay_client and relay_server lost")
-        '''
 
         #receive data
         try:
