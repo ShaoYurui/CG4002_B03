@@ -42,7 +42,7 @@ void loop()
     }
     else if (is_valid_data(indata))
     { //receive bullet count
-      ammo_count = int(indata); //see incoming data
+      ammo_count = get_ammo_count(indata); //see incoming data
     }
   }
 }  
@@ -54,6 +54,11 @@ bool is_valid_data(uint8_t data)
     return true;
   }
   return false;
+}
+
+int get_ammo_count(uint8_t data)
+{
+  return ((data >> 4) & 0b0111);
 }
 
 void disable_isr()
