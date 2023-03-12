@@ -29,7 +29,7 @@ class relay_client(threading.Thread):
     def send_data(self):
         success = True
         # Sends Sample Data (For Now)
-        self.accelerometer_data = {"player_id": 1, "message_id": 2, "x_data": 0.005, "y_data": 0.0015, "z_data": 0.0025}
+        self.accelerometer_data = {"player_id": 2, "message_type": 5, "acc_x": 0.010, "acc_y": 0.0025, "acc_z": 0.0035, "gyro_x": 0.0035, "gyro_y": 0.0035, "gyro_z": 0.0035}
         
         msg = json.dumps(self.accelerometer_data)
         msg_length = str(len(msg))+'_'
@@ -94,7 +94,7 @@ class relay_client(threading.Thread):
 
 def main():
     ip_addr = '127.0.0.1'
-    port_num = 8050
+    port_num = 8049
 
     current_relay = relay_client(ip_addr, port_num)
 

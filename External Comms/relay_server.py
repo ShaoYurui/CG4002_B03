@@ -155,6 +155,7 @@ class relay_server(threading.Thread):
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind((ip_addr, port_num))
+        self.connection_list = list()
         self.connection = None
         self.address = ""
         self.dataframe = pd.DataFrame(columns=["player_id", "message_id", "x_data", "y_data", "z_data"])
@@ -165,88 +166,101 @@ class relay_server(threading.Thread):
         threading.Thread.__init__(self)        
 
     def send_data(self):
+        self.socket.setblocking(1)
         success = True
-        try:
-            self.gamestate_data = self.gamestate_queue.get_nowait()
-            msg = json.dumps(self.gamestate_data)
-            msg_length = str(len(msg))+'_'
-        except Empty:
-            msg = json.dumps(self.gamestate_data)
-            msg_length = str(len(msg))+'_'
-
-        try:
-            self.connection.sendall(msg_length.encode("utf-8"))
-            self.connection.sendall(msg.encode("utf-8"))
-        except OSError:
-            print("connection between relay_server and relay_client lost")
-            success = False
+        for conn in self.connection_list:
+            self.connection = conn
+            try:
+                self.gamestate_data = self.gamestate_queue.get_nowait()
+                msg = json.dumps(self.gamestate_data)
+                msg_length = str(len(msg))+'_'
+                if self.gamestate_data == "logout":
+                    sys.exit()
+            except Empty:
+                self.socket.setblocking(0)
+                return
+                """
+                new_gamestate = json.dumps(self.gamestate_data)
+                msg = new_gamestate
+                msg_length = str(len(msg))+'_'
+                """
+            try:
+                print(self.gamestate_data)
+                self.connection.sendall(msg_length.encode("utf-8"))
+                self.connection.sendall(msg.encode("utf-8"))
+                self.socket.setblocking(0)
+            except OSError:
+                print("connection between relay_server and relay_client lost")
+                success = False
 
         return success
 
     def receive_data(self):
         try: 
-            data = b''
-            while not data.endswith(b'_'):
-                _d = self.connection.recv(1)
-                if not _d:
-                    data = b''
-                    break
-                data += _d
-            if len(data) == 0:
-                print('no more data from relay_server')
-                self.stop()
+            for conn in self.connection_list:
+                self.connection = conn
+                data = b''
+                while not data.endswith(b'_'):
+                    _d = self.connection.recv(1)
+                    if not _d:
+                        data = b''
+                        break
+                    data += _d
+                if len(data) == 0:
+                    print('no more data from relay_server')
+                    self.stop()
 
-            data = data.decode("utf-8")
-            length = int(data[:-1])
+                data = data.decode("utf-8")
+                length = int(data[:-1])
 
-            data = b''
-            while len(data) < length:
-                _d = self.connection.recv(length - len(data))
-                if not _d:
-                    data = b''
-                    break
-                data += _d
-            if len(data) == 0:
-                print('no more data from relay_server')
-                self.stop()
-            
-            msg = json.loads(data.decode("utf8"))
-            msg_df = pd.DataFrame([msg])
-            self.dataframe = pd.concat([self.dataframe, msg_df], ignore_index=True)
+                data = b''
+                while len(data) < length:
+                    _d = self.connection.recv(length - len(data))
+                    if not _d:
+                        data = b''
+                        break
+                    data += _d
+                if len(data) == 0:
+                    print('no more data from relay_server')
+                    self.stop()
+                
+                msg = json.loads(data.decode("utf8"))
+
+                if ((msg["message_type"] == 4) or (msg["message_type"] == 5)):
+                    self.accelerometer_queue.put(msg)
+                
+                elif msg["message_type"] == 6:
+                    if ((msg["acc_x"] == 0) and (msg["acc_y"] == 0) and (msg["acc_z"] == 0)
+                        and (msg["gyro_x"] == 0) and (msg["gyro_y"] == 0) and (msg["gyro_z"] == 0)):
+                        continue
+                    else:
+                        if msg["player_id"] == 1:
+                            self.accelerometer_queue.put(msg)
+
 
             return
 
         except ConnectionResetError:
             print('Connection Reset')
             self.stop()
+        except BlockingIOError:
+            return
 
         return None
 
-    def send_hardware_AI(self):
-        # 1 = shooting, 2 = shield, 3 = grenade, 4 = reload
-        self.accelerometer_queue.put(self.dataframe)
-        self.accelerometer_queue.get()
-        return
-
     def run(self):
 
-        self.socket.listen(1)
-        self.connection, self.address = self.socket.accept()
-        print("relay_server is now connected to relay_client!")
+        for i in range(2):
+            self.socket.listen(1)
+            connection, address = self.socket.accept()
+            self.connection_list.append(connection)
+            print("relay_server is now connected to " + str(address))
 
         while True:
             # Receives Accelerometer Data From relay_client for 1s
 
             self.receive_data()
             
-            # Send dataframe to Hardware AI
-            self.send_hardware_AI()
-
-            time.sleep(5)
-
-            # Empty Dataframe
-            self.dataframe = pd.DataFrame(columns=["player_id", "message_id", "x_data", "y_data", "z_data"])
-
             # Sends GameState Data To relay_client
             self.send_data()
 

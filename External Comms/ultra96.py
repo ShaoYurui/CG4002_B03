@@ -19,8 +19,7 @@ from HardwareAI import HardwareAI
 from player import player
 
 accelerometer_queue = Queue()
-gamestate_queue_1 = Queue()
-gamestate_queue_2 = Queue()
+gamestate_queue = Queue()
 prediction_queue = Queue()
 eval_to_p1_queue = Queue()
 p1_to_eval_queue = Queue()
@@ -44,9 +43,11 @@ SECRET_KEY                      = 1212121212121212
 RELAY_IP_1                        = '192.168.95.249'
 RELAY_PORT_1                      = 8049
 
+"""
 # relay_server_2 Parameters
 RELAY_IP_2                        = '192.168.95.249'
 RELAY_PORT_2                      = 8050
+"""
 
 # Default Game State
 DEFAULT_GAME_STATE              = {
@@ -55,8 +56,8 @@ DEFAULT_GAME_STATE              = {
                                             "action": "none",
                                             "bullets": 6,
                                             "grenades": 2,
-                                            "shield_time": 10,
-                                            "shield_health": 30,
+                                            "shield_time": 0,
+                                            "shield_health": 0,
                                             "num_deaths": 0,
                                             "num_shield": 3
                                         },
@@ -65,8 +66,8 @@ DEFAULT_GAME_STATE              = {
                                             "action": "none",
                                             "bullets": 6,
                                             "grenades": 2,
-                                            "shield_time": 10,
-                                            "shield_health": 30,
+                                            "shield_time": 0,
+                                            "shield_health": 0,
                                             "num_deaths": 0,
                                             "num_shield": 3
                                         }
@@ -111,25 +112,19 @@ class Ultra96():
                                     , GROUP_ID
                                     , SECRET_KEY
                                     , game_mode
-                                    , gamestate_queue_1
-                                    , gamestate_queue_2
+                                    , DEFAULT_GAME_STATE
+                                    , gamestate_queue
                                     , prediction_queue
                                     , eval_to_p1_queue
                                     , eval_to_p2_queue
                                     , p1_to_eval_queue
                                     , p2_to_eval_queue)
 
-        my_relay_server_1 = relay_server(RELAY_IP_1
+        my_relay_server = relay_server(RELAY_IP_1
                                     , RELAY_PORT_1
                                     , DEFAULT_GAME_STATE
                                     , accelerometer_queue
-                                    , gamestate_queue_1)
-        
-        my_relay_server_2 = relay_server(RELAY_IP_2
-                            , RELAY_PORT_2
-                            , DEFAULT_GAME_STATE
-                            , accelerometer_queue
-                            , gamestate_queue_2)
+                                    , gamestate_queue)
         
         my_HardwareAI = HardwareAI(accelerometer_queue
                                     , prediction_queue)
@@ -139,15 +134,14 @@ class Ultra96():
         
 
         my_eval_client.start()
-        my_relay_server_1.start()
-        my_relay_server_2.start()
+        my_relay_server.start()
         my_HardwareAI.start()
         my_player1.start()
         my_player2.start()
 
         my_eval_client.join()
-        my_relay_server_1.join()
-        my_relay_server_2.join()
+        my_relay_server.join()
+        # my_relay_server_2.join()
         my_HardwareAI.join()
         my_player1.join()
         my_player2.join()

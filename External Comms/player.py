@@ -283,7 +283,6 @@ class player(threading.Thread):
         self.shield_health_max      = 30
         self.magazine_size          = 6
         self.max_hp                 = 100
-        self.max_shield_respawn     = 10
 
         self.hp             = self.max_hp
         self.action         = 'none'
@@ -296,12 +295,11 @@ class player(threading.Thread):
 
         self.shield_activated = False
         self.shield_activate_time = 0
-
-        self.shield_respawn_cooldown = False
-        self.shield_respawn_starttime = 0
-        self.shield_respawn_time = 0
         
         self.playerstate = None
+
+        self.clock_offset = 0
+        self.offset_calculated = False
 
         self.eval_to_player_queue = eval_to_player_queue
         self.player_to_eval_queue = player_to_eval_queue
@@ -368,8 +366,8 @@ class player(threading.Thread):
 
         self.action = "shield"
 
-        # Execute only if there are shields left and no shield is active
-        if ((self.num_shield > 0) and (self.shield_respawn_cooldown == False) and (self.shield_activated == False)):
+        # Execute only if there are shields left and no shield is active and it's not under cooldown
+        if ((self.num_shield > 0) and (self.shield_time == 0) and (self.shield_activated == False)):
             self.num_shield = self.num_shield - 1
             self.shield_activated = True
             self.shield_time = self.shield_max_time
@@ -377,6 +375,7 @@ class player(threading.Thread):
             self.shield_activate_time = timer()
         
         self.playerstate = self.get_dict()
+        print(self.playerstate)
         return
     
     def perform_reload(self):
@@ -399,9 +398,9 @@ class player(threading.Thread):
         if self.shield_activated == True:
             # Case 1.1 : This hit destroys the shield
             if self.shield_health == 10:
-                self.shield_health = 0
+                self.shield_health = 30
                 self.shield_activated = False
-                self.shield_activate_time = None
+                self.shield_activate_time = 0
                 self.num_shield = self.num_shield - 1
             
             # Case 1.2 : This hit does not destroy the shield
@@ -429,16 +428,16 @@ class player(threading.Thread):
         if self.shield_activated == True:
             # Case 1.1 : This hit destroys the shield but does not harm the player
             if self.shield_health == 30:
-                self.shield_health = 0
+                self.shield_health = 30
                 self.shield_activated = False
-                self.shield_activate_time = None
+                self.shield_activate_time = 0
                 self.num_shield = self.num_shield - 1
 
             # Case 1.2 : This hit destroys shield and harms the player
             elif self.shield_health < 30:
-                self.shield_health = 0
+                self.shield_health = 30
                 self.shield_activated = False
-                self.shield_activate_time = None
+                self.shield_activate_time = 0
                 self.num_shield = self.num_shield - 1
 
                 hp_damage = 30 - self.shield_health
@@ -469,25 +468,26 @@ class player(threading.Thread):
         self.playerstate = self.get_dict()
         return
 
+
     def update_shield_timings(self):
         
         if ((self.shield_activated == False) and (self.shield_time == 0)):
             return
         
         current_time = timer()
-        self.shield_time = self.shield_max_time - (current_time - self.shield_activate_time)
+        self.shield_time = self.shield_max_time - (current_time - self.shield_activate_time) - self.clock_offset
 
         if self.shield_time <= 0:
             self.shield_activated = False
-            self.shield_activate_time = None
+            self.shield_health = 0
+            self.shield_activate_time = 0
             self.shield_respawn_cooldown = True
-            self.shield_respawn_starttime = timer()
-            self.shield_respawn_time = 10
             self.shield_time = 0
         
         self.playerstate = self.get_dict()
         return
     
+    """
     def update_respawn_timings(self):
         
         if self.shield_respawn_cooldown == False:
@@ -502,15 +502,18 @@ class player(threading.Thread):
 
         self.playerstate = self.get_dict()
         return
+    """
 
 
     def run(self):
         while True:
             self.update_shield_timings()
-            self.update_respawn_timings()
+            # self.update_respawn_timings()
 
             try: 
                 command = self.eval_to_player_queue.get()
+
+                print("From player: Command obtained")
 
                 if command == "perform_shoot":
                     self.perform_shoot()
@@ -526,14 +529,42 @@ class player(threading.Thread):
                     self.grenade_hit()
                 elif command == "no_apply":
                     self.no_apply()
+                elif command == "logout":
+                    self.player_to_eval_queue.put("logout")
+                    sys.exit()
+                
+                print("From player: Action done")
                 
                 self.player_to_eval_queue.put(self.playerstate)
 
             except Empty:
                 continue
 
+            new_playerstate = self.eval_to_player_queue.get()
+            # Obtain Clock offset to ensure error is not propagated
+            self.clock_offset = self.clock_offset + (self.playerstate["shield_time"] - new_playerstate["shield_time"])
+            # self.shield_activate_time = self.shield_activate_time - (self.playerstate["shield_time"] - new_playerstate["shield_time"])
 
+            # Situation where shield is false negative
+            if ((new_playerstate["action"] == "shield") and (self.playerstate["action"] != "shield")):
+                self.shield_activated = True
+            
+            elif ((new_playerstate["action"] != "shield") and (self.playerstate["action"] == "shield")):
+                if self.shield_time == self.shield_max_time:
+                    self.shield_activated = False
+            
+            print("Gamestate updated")
 
+            # Fixing Player State
+            self.playerstate = new_playerstate
+            self.hp             = self.playerstate["hp"]
+            self.action         = self.playerstate["action"]
+            self.bullets        = self.playerstate["bullets"]
+            self.grenades       = self.playerstate["grenades"]
+            self.shield_time    = self.playerstate["shield_time"]
+            self.shield_health  = self.playerstate["shield_health"]
+            self.num_shield     = self.playerstate["num_shield"]
+            self.num_deaths     = self.playerstate["num_deaths"]            
     
 
         
