@@ -27,7 +27,7 @@ need_n_corrupt = False
 need_better_display = False
 need_write_to_file = False
 
-PLAYER_ID = b'\x02' # \x01 or \x02
+PLAYER_ID = b'\x01' # \x01 or \x02
 
 ACK = b'\x41'
 NAK = b'\x4E'
@@ -332,21 +332,21 @@ def handleBeetle(i):
                 #print("NORMAL COMM on {n}".format(n=i))
                 try:
                     if i == 0:
-                        print("d[{i}] prepare data to gun".format(i=i))
+                        #print("d[{i}] prepare data to gun".format(i=i))
                         gun_data = c[0].data_to_gun.get_nowait()
                         if not need_better_display:
                             print("d[{i}] send data to gun: {bullets}".format(i=i, bullets=gun_data))
                         gun_data_b = gun_data.to_bytes(1, 'big')
                         d[i].ch.write(gun_data_b)
                     elif i == 1:
-                        print("d[{i}] prepare data to vest".format(i=i))
+                        #print("d[{i}] prepare data to vest".format(i=i))
                         vest_data = c[0].data_to_vest.get_nowait()
                         if not need_better_display:
                             print("d[{i}] send data to vest: {hp}".format(i=i, hp=vest_data))
                         vest_data_b = vest_data.to_bytes(1, 'big')
                         d[i].ch.write(vest_data_b)
                 except Empty:
-                    print("EMPTY DATA TO HW")
+                    #print("EMPTY DATA TO HW")
                     pass
 
                 ###if not need_better_display:
