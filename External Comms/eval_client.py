@@ -16,6 +16,8 @@ import traceback
 from multiprocessing import Queue
 from multiprocessing import Pipe
 from queue import Empty
+from datetime import datetime
+
 
 """
 class eval_client(threading.Thread):
@@ -411,10 +413,8 @@ class eval_client(threading.Thread):
         while True:
             try: 
                 self.prediction_value = self.prediction_queue.get()
-                print("From eval_client: Prediction Obtained!")
 
                 self.handle_gamestate()
-                print("gamestate handled")
 
                 if ((self.predicted_gamestate["p1"] == "logout") and (self.predicted_gamestate["p2"] == "logout")):
                     self.gamestate_queue.put("logout")

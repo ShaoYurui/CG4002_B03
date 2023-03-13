@@ -13,11 +13,12 @@ from multiprocessing import Pipe
 import random
 
 from timeit import default_timer as timer
+import time
 
-from ultra96_cnn import set_up_fpga
-from ultra96_cnn import run_inference
+# from ultra96_cnn import set_up_fpga
+# from ultra96_cnn import run_inference
 
-import datetime
+from datetime import datetime
 from queue import Empty
 
 """
@@ -56,6 +57,7 @@ class HardwareAI(threading.Thread):
         self.accelerometer_queue = accelerometer_queue
         self.prediction_queue = prediction_queue
         self.sender = 0
+        self.debug_relay = 0
         self.receiver = 0
         self.p1_shot_detect_time = 0
         self.p2_shot_detect_time = 0
@@ -63,17 +65,17 @@ class HardwareAI(threading.Thread):
 
         threading.Thread.__init__(self)
 
-    
+    """
     def run(self):
         while True:
             prediction = input("Enter dummy input: ")
             self.prediction_queue.put({"sender": 1, "receiver": 2, "command": int(prediction)})
-    
+    """
 
     
     def run(self):
 
-        cnn = set_up_fpga()
+        # cnn = set_up_fpga()
 
         while True:
             # self.dataframe = self.accelerometer_queue.get()
@@ -103,17 +105,18 @@ class HardwareAI(threading.Thread):
                     
             
             elif (msg["message_type"] == 4):
-                print("HOHOHO")
+                print("Read from accelerometer queue at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+
                 if msg["player_id"] == 1:
                     self.sender = 1
                     self.receiver = 2
-                    self.p1_shot_detect_time = timer()
+                    self.p1_shot_detect_time = time.time()
                     print("Player 1 Shot Sent at " + str(self.p1_shot_detect_time))
                     self.prediction_queue.put({"sender": self.sender, "receiver": self.receiver, "command": 5})
                 elif msg["player_id"] == 2:
                     self.sender = 2
                     self.receiver = 1
-                    self.p2_shot_detect_time = timer()
+                    self.p2_shot_detect_time = time.time()
                     print("Player 2 Shot Sent at " + str(self.p2_shot_detect_time))
                     self.prediction_queue.put({"sender": self.sender, "receiver": self.receiver, "command": 5})
 
@@ -145,4 +148,5 @@ class HardwareAI(threading.Thread):
                     else:
                         self.prediction_queue.put({"sender": self.sender, "receiver": self.receiver, "command": 6})
             """
+
 

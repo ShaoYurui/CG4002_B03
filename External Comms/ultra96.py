@@ -106,7 +106,6 @@ class Ultra96():
         my_player1 = player(p1_to_eval_conn)
         my_player2 = player(p2_to_eval_conn)
         """
-        
         my_eval_client = eval_client(EVAL_IP
                                     , EVAL_PORT
                                     , GROUP_ID
@@ -149,6 +148,7 @@ class Ultra96():
 
 
 if __name__ == '__main__':
+
     game_mode = int(sys.argv[1])
 
     my_ultra96 = Ultra96(game_mode)
