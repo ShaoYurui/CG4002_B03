@@ -472,8 +472,10 @@ def handleConnection():
         #print("HANDLE CONNECTION")
         #send data
         try:
-            msg = convert_to_json(c[0].data_to_cloud.get_nowait())
-            if msg["message_type"] != 6:
+            msg_b = c[0].data_to_cloud.get_nowait()
+            msg = convert_to_json(msg_b)
+            #msg = convert_to_json(c[0].data_to_cloud.get_nowait())
+            if msg_b[0] != 6:
                 print("get data to cloud from queue: {ts}".format(ts=time.time()))
             #print(msg)
             msg_length = str(len(msg)) + '_'
@@ -481,7 +483,7 @@ def handleConnection():
             try:
                 c[0].socket.sendall(msg_length.encode("utf-8"))
                 c[0].socket.sendall(msg.encode("utf-8"))
-                if (not need_better_display) and msg["message_type"] != 6:
+                if (not need_better_display) and msg_b[0] != 6:
                     print(msg)
                     print("data sent to cloud: {ts}".format(ts=time.time()))
             except OSError:
