@@ -1,7 +1,7 @@
 #include <IRremote.h> // >v3.0.0
 #include <FastLED.h>
 /////////////////////////////////// PLAYER DEFINES ////////////////////////////////////////// 
-#define PLAYER_ID              0x02 //0x01 or 0x02
+#define PLAYER_ID                   0x01 //0x01 or 0x02
 /////////////////////////////////// LED STRIPS DEFINES ////////////////////////////////////// 
 /////////////////////////////////// SERIAL DEFINES //////////////////////////////////////////                                      
 #define BAUD_RATE                   115200
@@ -18,7 +18,7 @@
 /////////////////////////////////// GAME STATUS VARIABELS ///////////////////////////////////                                      
 int health_pt = 10;
 int shield_pt = 0;
-int prev_health_pt = 0;
+int prev_health_pt = 1;
 int prev_shield_pt = 0;
 bool is_shield_activated = false;
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -48,7 +48,7 @@ void setup()
   Serial.begin(BAUD_RATE); //initialize serial connection to print on the Serial Monitor of the Arduino IDE
   IrReceiver.begin(PIN_RECV); // Initializes the IR receiver object
   health_bar_setup();
-  pinMode(LED_PIN, OUTPUT);
+  //pinMode(LED_PIN, OUTPUT);
   health_bar_display();
 }  
                                
@@ -64,7 +64,7 @@ void loop()
     } 
     else if (is_valid_data(indata))
     { //receive hp
-      set_health_pt(indata);
+      set_pt_with_data(indata);
       health_bar_display();
     }
   }
@@ -74,7 +74,9 @@ void loop()
       (IrReceiver.decodedIRData.command == SHOOTER_ID))
     {
       send_data();
-      health_bar_blink(1);
+      //health_bar_blink(1);
+      set_pt_after_hurt();
+      health_bar_display();
     }
     IrReceiver.resume(); // Important, enables to receive the next IR signal
   }  
@@ -82,17 +84,30 @@ void loop()
 /////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////// LED STRIPS FUNTIONS DEFINES/////////////////////////////
 
-void set_health_pt(uint8_t data)
+void set_pt_with_data(uint8_t data)
 {
   // 0 00 0000 0
   shield_pt = (data >> 5) & 0b011;
   health_pt = (data >> 1) & 0b0001111;
+}
 
-  is_shield_activated = false;
+void set_pt_with_value(int new_health_pt, int new_shield_pt)
+{
+  shield_pt = new_health_pt;
+  health_pt = new_shield_pt;
+}
+
+void set_pt_after_hurt()
+{
   if (shield_pt > 0)
   {
-    is_shield_activated = true;
+    shield_pt = shield_pt - 1;
   }
+  else
+  {
+    health_pt = health_pt - 1;
+  }
+  health_pt = get_processed_hp(health_pt);
 }
 
 bool is_valid_data(uint8_t data)
@@ -137,34 +152,33 @@ void shield_bar_display(int hp)
 
 void health_bar_display()
 {
-  if ((prev_health_pt != health_pt) || (prev_shield_pt != shield_pt))
-  {
-    prev_health_pt = health_pt;
-    prev_shield_pt = shield_pt;
-    health_bar_blink(2);
-  }
-  else
+  if (((health_pt >= prev_health_pt) && (shield_pt >= prev_shield_pt)) &&
+      !(health_pt == 10 && prev_health_pt == 1))
   {
     return ;
   }
-  if (is_shield_activated)
+
+  prev_health_pt = health_pt;
+  prev_shield_pt = shield_pt;
+  health_bar_blink(3);
+
+  if (shield_pt > 0)
   {
     shield_bar_display(shield_pt);
     return;
   }
-  int hp = get_processed_hp(health_pt);
-  int num_led_up = 1.0f * hp / 10 * NUM_LEDS;
-  int red_value =  1.0f * (10 - hp) / 10 * 255;
-  int green_value = 1.0f * hp / 10 * 255;
-  
-  if(hp == 1)
+
+  int num_led_up = 1.0f * health_pt / 10 * NUM_LEDS;
+  int red_value =  1.0f * (10 - health_pt) / 10 * 255;
+  int green_value = 1.0f * health_pt / 10 * 255;
+  if(health_pt == 1)
   {
     led_strips_display(1,255,0,0);
     return;
   }
-  if(hp == 0)
+  if(health_pt == 0)
   {
-    led_strips_display(NUM_LEDS,255,0,0);
+    led_strips_display(7,255,0,0);
     return;
   }
   led_strips_display(num_led_up,red_value,green_value,0);
@@ -172,9 +186,9 @@ void health_bar_display()
 
 int get_processed_hp(int hp)
 {
-  if(hp < 0)
+  if(hp <= 0)
   {
-    return 0;
+    return 10;
   }
   return hp;
 }

@@ -15,6 +15,8 @@ import traceback
 from multiprocessing import Queue
 from queue import Empty
 
+from datetime import datetime
+
 import struct
 import curses
 
@@ -146,6 +148,11 @@ class CommunicationDelegate(btle.DefaultDelegate):
                             d[self.pid].prev_msg_id = indata[1]
                     d[self.pid].data = d[self.pid].data[20:]
 
+                    c[0].data_to_cloud.put(indata)
+                    if indata[0] != 6:
+                        #print("put data to cloud in queue: {ts}".format(ts=time.time()))
+                        print("put data to cloud in queue: {ts}".format(ts=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+
                 if need_n_packet_received:
                     d[self.pid].n_packet_received += 1
 
@@ -153,7 +160,7 @@ class CommunicationDelegate(btle.DefaultDelegate):
                     d[self.pid].n_time_sent += 1
 
                 #c[0].data_to_cloud += indata
-                c[0].data_to_cloud.put(indata)
+                #c[0].data_to_cloud.put(indata) #only put to cloud when valid data
                 #displayOutput(self.pid * info_row, "Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
 
 
@@ -332,27 +339,27 @@ def handleBeetle(i):
                 #print("NORMAL COMM on {n}".format(n=i))
                 try:
                     if i == 0:
-                        print("d[{i}] prepare data to gun".format(i=i))
+                        #print("d[{i}] prepare data to gun".format(i=i))
                         gun_data = c[0].data_to_gun.get_nowait()
                         if not need_better_display:
                             print("d[{i}] send data to gun: {bullets}".format(i=i, bullets=gun_data))
                         gun_data_b = gun_data.to_bytes(1, 'big')
                         d[i].ch.write(gun_data_b)
                     elif i == 1:
-                        print("d[{i}] prepare data to vest".format(i=i))
+                        #print("d[{i}] prepare data to vest".format(i=i))
                         vest_data = c[0].data_to_vest.get_nowait()
                         if not need_better_display:
                             print("d[{i}] send data to vest: {hp}".format(i=i, hp=vest_data))
                         vest_data_b = vest_data.to_bytes(1, 'big')
                         d[i].ch.write(vest_data_b)
                 except Empty:
-                    print("EMPTY DATA TO HW")
+                    #print("EMPTY DATA TO HW")
                     pass
 
                 ###if not need_better_display:
                  ###   displayOutput(i * info_row, "Device[{id}] waiting...".format(id=i))
                 try:
-                    d[i].peripheral.waitForNotifications(0.02)
+                    d[i].peripheral.waitForNotifications(0.01)
                 except btle.BTLEDisconnectError:
                     displayOutput(i * info_row, "Device[{id}] disconnected".format(id=i))
                     d[i].connection = 0
@@ -468,15 +475,22 @@ def handleConnection():
         #print("HANDLE CONNECTION")
         #send data
         try:
-            msg = convert_to_json(c[0].data_to_cloud.get_nowait())
+            msg_b = c[0].data_to_cloud.get_nowait()
+            msg = convert_to_json(msg_b)
+            #msg = convert_to_json(c[0].data_to_cloud.get_nowait())
+            if msg_b[0] != 6:
+                #print("get data to cloud from queue: {ts}".format(ts=time.time()))
+                print("get data to cloud from queue: {ts}".format(ts=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
             #print(msg)
             msg_length = str(len(msg)) + '_'
 
             try:
                 c[0].socket.sendall(msg_length.encode("utf-8"))
                 c[0].socket.sendall(msg.encode("utf-8"))
-                #if not need_better_display:
-                    #print("Message sent to relay_server!")
+                if (not need_better_display) and msg_b[0] != 6:
+                    print(msg)
+                    #print("data sent to cloud: {ts}".format(ts=time.time()))
+                    print("data sent to cloud: {ts}".format(ts=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
             except OSError:
                 if not need_better_display:
                     print("connection between relay_client and relay_server lost")
