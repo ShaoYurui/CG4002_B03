@@ -15,6 +15,8 @@ import traceback
 from multiprocessing import Queue
 from queue import Empty
 
+from datetime import datetime
+
 import struct
 import curses
 
@@ -148,7 +150,8 @@ class CommunicationDelegate(btle.DefaultDelegate):
 
                     c[0].data_to_cloud.put(indata)
                     if indata[0] != 6:
-                        print("put data to cloud in queue: {ts}".format(ts=time.time()))
+                        #print("put data to cloud in queue: {ts}".format(ts=time.time()))
+                        print("put data to cloud in queue: {ts}".format(ts=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
 
                 if need_n_packet_received:
                     d[self.pid].n_packet_received += 1
@@ -476,7 +479,8 @@ def handleConnection():
             msg = convert_to_json(msg_b)
             #msg = convert_to_json(c[0].data_to_cloud.get_nowait())
             if msg_b[0] != 6:
-                print("get data to cloud from queue: {ts}".format(ts=time.time()))
+                #print("get data to cloud from queue: {ts}".format(ts=time.time()))
+                print("get data to cloud from queue: {ts}".format(ts=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
             #print(msg)
             msg_length = str(len(msg)) + '_'
 
@@ -485,7 +489,8 @@ def handleConnection():
                 c[0].socket.sendall(msg.encode("utf-8"))
                 if (not need_better_display) and msg_b[0] != 6:
                     print(msg)
-                    print("data sent to cloud: {ts}".format(ts=time.time()))
+                    #print("data sent to cloud: {ts}".format(ts=time.time()))
+                    print("data sent to cloud: {ts}".format(ts=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
             except OSError:
                 if not need_better_display:
                     print("connection between relay_client and relay_server lost")
