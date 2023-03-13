@@ -513,8 +513,6 @@ class player(threading.Thread):
             try: 
                 command = self.eval_to_player_queue.get()
 
-                print("From player: Command obtained")
-
                 if command == "perform_shoot":
                     self.perform_shoot()
                 elif command == "perform_grenade":
@@ -532,8 +530,6 @@ class player(threading.Thread):
                 elif command == "logout":
                     self.player_to_eval_queue.put("logout")
                     sys.exit()
-                
-                print("From player: Action done")
                 
                 self.player_to_eval_queue.put(self.playerstate)
 
@@ -553,8 +549,6 @@ class player(threading.Thread):
                 if self.shield_time == self.shield_max_time:
                     self.shield_activated = False
             
-            print("Gamestate updated")
-
             # Fixing Player State
             self.playerstate = new_playerstate
             self.hp             = self.playerstate["hp"]
