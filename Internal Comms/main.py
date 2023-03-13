@@ -307,7 +307,7 @@ def handleBeetle(i):
             elif d[i].handshake_start == 0:  # check handshake has begun
                 try:
                     time.sleep(5)
-                    timeout = time.time() + 10  # 10s from now
+                    timeout = time.time() + 5  # 10s from now
                     d[i].ch.write(REQUEST_H)
                     d[i].handshake_start = 1
                     displayOutput(i * info_row, "Device[{id}] begin handshake".format(id=i))
