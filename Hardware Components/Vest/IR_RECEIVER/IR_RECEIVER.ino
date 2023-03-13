@@ -106,8 +106,8 @@ void set_pt_after_hurt()
   else
   {
     health_pt = health_pt - 1;
+    health_pt = get_processed_hp(health_pt);
   }
-  health_pt = get_processed_hp(health_pt);
 }
 
 bool is_valid_data(uint8_t data)
@@ -174,11 +174,6 @@ void health_bar_display()
   if(health_pt == 1)
   {
     led_strips_display(1,255,0,0);
-    return;
-  }
-  if(health_pt == 0)
-  {
-    led_strips_display(7,255,0,0);
     return;
   }
   led_strips_display(num_led_up,red_value,green_value,0);
