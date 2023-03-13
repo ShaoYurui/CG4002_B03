@@ -147,6 +147,7 @@ class CommunicationDelegate(btle.DefaultDelegate):
                     d[self.pid].data = d[self.pid].data[20:]
 
                     c[0].data_to_cloud.put(indata)
+                    print("put data to cloud in queue: {ts}".format(ts=time.time()))
 
                 if need_n_packet_received:
                     d[self.pid].n_packet_received += 1
@@ -471,14 +472,16 @@ def handleConnection():
         #send data
         try:
             msg = convert_to_json(c[0].data_to_cloud.get_nowait())
+            print("get data to cloud from queue: {ts}".format(ts=time.time()))
             #print(msg)
             msg_length = str(len(msg)) + '_'
 
             try:
                 c[0].socket.sendall(msg_length.encode("utf-8"))
                 c[0].socket.sendall(msg.encode("utf-8"))
-                #if not need_better_display:
-                    #print("Message sent to relay_server!")
+                if not need_better_display:
+                    print(msg)
+                    print("data sent to cloud: {ts}".format(ts=time.time()))
             except OSError:
                 if not need_better_display:
                     print("connection between relay_client and relay_server lost")
@@ -534,7 +537,7 @@ def handleConnection():
                 #c[0].stop()
                 continue
             msg = json.loads(data.decode("utf8"))  # Decode raw bytes to UTF-8
-            print(msg)
+            #print(msg)
             extractMsg(msg)
 
         except BlockingIOError:
