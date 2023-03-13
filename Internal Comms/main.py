@@ -147,7 +147,8 @@ class CommunicationDelegate(btle.DefaultDelegate):
                     d[self.pid].data = d[self.pid].data[20:]
 
                     c[0].data_to_cloud.put(indata)
-                    print("put data to cloud in queue: {ts}".format(ts=time.time()))
+                    if indata[0] != 6:
+                        print("put data to cloud in queue: {ts}".format(ts=time.time()))
 
                 if need_n_packet_received:
                     d[self.pid].n_packet_received += 1
@@ -472,14 +473,15 @@ def handleConnection():
         #send data
         try:
             msg = convert_to_json(c[0].data_to_cloud.get_nowait())
-            print("get data to cloud from queue: {ts}".format(ts=time.time()))
+            if msg["message_type"] != 6:
+                print("get data to cloud from queue: {ts}".format(ts=time.time()))
             #print(msg)
             msg_length = str(len(msg)) + '_'
 
             try:
                 c[0].socket.sendall(msg_length.encode("utf-8"))
                 c[0].socket.sendall(msg.encode("utf-8"))
-                if not need_better_display:
+                if (not need_better_display) and msg["message_type"] != 6:
                     print(msg)
                     print("data sent to cloud: {ts}".format(ts=time.time()))
             except OSError:
