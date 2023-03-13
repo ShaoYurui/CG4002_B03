@@ -27,7 +27,7 @@ need_n_corrupt = False
 need_better_display = False
 need_write_to_file = False
 
-PLAYER_ID = b'\x01' # \x01 or \x02
+PLAYER_ID = b'\x02' # \x01 or \x02
 
 ACK = b'\x41'
 NAK = b'\x4E'
@@ -146,6 +146,8 @@ class CommunicationDelegate(btle.DefaultDelegate):
                             d[self.pid].prev_msg_id = indata[1]
                     d[self.pid].data = d[self.pid].data[20:]
 
+                    c[0].data_to_cloud.put(indata)
+
                 if need_n_packet_received:
                     d[self.pid].n_packet_received += 1
 
@@ -153,7 +155,7 @@ class CommunicationDelegate(btle.DefaultDelegate):
                     d[self.pid].n_time_sent += 1
 
                 #c[0].data_to_cloud += indata
-                c[0].data_to_cloud.put(indata)
+                #c[0].data_to_cloud.put(indata) #only put to cloud when valid data
                 #displayOutput(self.pid * info_row, "Device[{id}] received: {dat}".format(id=self.pid, dat=indata.hex()))
 
 
@@ -352,7 +354,7 @@ def handleBeetle(i):
                 ###if not need_better_display:
                  ###   displayOutput(i * info_row, "Device[{id}] waiting...".format(id=i))
                 try:
-                    d[i].peripheral.waitForNotifications(0.02)
+                    d[i].peripheral.waitForNotifications(0.01)
                 except btle.BTLEDisconnectError:
                     displayOutput(i * info_row, "Device[{id}] disconnected".format(id=i))
                     d[i].connection = 0
@@ -532,7 +534,7 @@ def handleConnection():
                 #c[0].stop()
                 continue
             msg = json.loads(data.decode("utf8"))  # Decode raw bytes to UTF-8
-            #print(msg)
+            print(msg)
             extractMsg(msg)
 
         except BlockingIOError:
