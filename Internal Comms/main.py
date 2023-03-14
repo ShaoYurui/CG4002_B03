@@ -29,7 +29,7 @@ need_n_corrupt = False
 need_better_display = False
 need_write_to_file = False
 
-PLAYER_ID = b'\x02' # \x01 or \x02
+PLAYER_ID = b'\x01' # \x01 or \x02
 
 ACK = b'\x41'
 NAK = b'\x4E'
@@ -43,11 +43,13 @@ mac = list()
 if PLAYER_ID == b'\x01':
     mac.append('80:30:dc:d9:1f:93')  # gun x
     mac.append('34:15:13:22:a1:37')  # vest x
-    mac.append('80:30:dc:e9:1c:74')  # imu X
+    #mac.append('80:30:dc:e9:1c:74')  # imu X
+    mac.append('80:30:dc:e9:08:d7')  # imu # swapped for testing
 elif PLAYER_ID == b'\x02':
     mac.append('34:14:b5:51:d9:04') # gun
     mac.append('80:30:dc:d9:23:27') # vest
-    mac.append('80:30:dc:e9:08:d7') # imu
+    #mac.append('80:30:dc:e9:08:d7') # imu
+    mac.append('80:30:dc:e9:1c:74')  # imu X # swapped for testing
 
 d = list() #devices list
 c = list() #connection to cloud
@@ -147,9 +149,9 @@ class CommunicationDelegate(btle.DefaultDelegate):
                     d[self.pid].data = d[self.pid].data[20:]
 
                     c[0].data_to_cloud.put(indata)
-                    if indata[0] != 6:
+                    #if indata[0] != 6:
                         #print("put data to cloud in queue: {ts}".format(ts=time.time()))
-                        print("put data to cloud in queue: {ts}".format(ts=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+                    #print("put data to cloud in queue: {ts}".format(ts=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
 
                 if need_n_packet_received:
                     d[self.pid].n_packet_received += 1
@@ -410,6 +412,8 @@ def convert_to_json(data):
 
 
 def extractMsg(msg):
+    print(msg)
+
     #default value
     bullets = 6
     hp = 10
@@ -474,10 +478,10 @@ def handleConnection():
             try:
                 c[0].socket.sendall(msg_length.encode("utf-8"))
                 c[0].socket.sendall(msg.encode("utf-8"))
-                if (not need_better_display) and msg_b[0] != 6:
-                    print(msg)
+                #if not need_better_display:
+                    #print(msg)
                     #print("data sent to cloud: {ts}".format(ts=time.time()))
-                    print("data sent to cloud: {ts}".format(ts=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+                    #print("data sent to cloud: {ts}".format(ts=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
             except OSError:
                 if not need_better_display:
                     print("connection between relay_client and relay_server lost")
