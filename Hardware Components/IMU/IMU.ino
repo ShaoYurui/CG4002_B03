@@ -6,8 +6,10 @@
 #define LOOP_TIME             ((1.0f / SEND_FREQ) * 1000) // ms
 #define BAUD_RATE             115200
 /////////////////////////////////////////////////////////////////////////////////////////////
+#define LED_GND               3
+#define LED_PIN               4
 ////////////////////////////// IMU  PREPROCESS DEFINES///////////////////////////////////////
-#define CALIBRATE_SAMPLE_NUM  200
+#define CALIBRATE_SAMPLE_NUM  1000
 #define IMU_AG_SCALE_FACTOR   1000
 #define IMU_AG_THRESHOLD      100
 #define IMU_NO_MOVE_THRESHOLD 10
@@ -46,8 +48,13 @@ unsigned long imu_time ;
 void setup() 
 {
   Serial.begin(BAUD_RATE);//initial the Serial
+  pinMode(LED_GND,OUTPUT);
+  pinMode(LED_PIN,OUTPUT);
+  digitalWrite(LED_GND,LOW);
+  digitalWrite(LED_PIN,HIGH);
   setup_IMU();
   calibrate_IMU();
+  digitalWrite(LED_PIN,LOW);
 }
 
 void loop()
@@ -136,7 +143,7 @@ void read_IMU_data()
 void calibrate_IMU()
 {
   reset_cal_bias();
-  delay(50);
+  delay(100);
   for(int i = 0; i < CALIBRATE_SAMPLE_NUM; i++)
   {
     read_IMU_data();
