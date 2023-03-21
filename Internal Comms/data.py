@@ -45,8 +45,8 @@ nBeetle = 1
 
 mac = list()
 
-# mac.append('80:30:dc:e9:1c:74') # imu X
-mac.append('80:30:dc:e9:08:d7')  # imu
+mac.append('80:30:dc:e9:1c:74') # imu 
+#mac.append('80:30:dc:e9:08:d7')  # imu X
 
 d = list()  # devices list
 
@@ -225,7 +225,7 @@ class ImuData:
 
     def is_moving(self):
         if self.acc_x + self.acc_y + self.acc_z + self.gyro_x + self.gyro_y + self.gyro_z == 0:
-            return True
+            return False
         return True
 
 
