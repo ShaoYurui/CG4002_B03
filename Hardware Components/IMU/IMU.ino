@@ -149,7 +149,7 @@ void calibrate_IMU()
     read_IMU_data();
     accelerometer_x_cal += accelerometer_x;
     accelerometer_y_cal += accelerometer_y;
-    accelerometer_z_cal += accelerometer_z;
+    accelerometer_z_cal += (accelerometer_z + 16384);
     gyro_x_cal += gyro_x;
     gyro_y_cal += gyro_y;
     gyro_z_cal += gyro_z; 
