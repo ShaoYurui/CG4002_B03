@@ -8,7 +8,7 @@
 #define BAUD_RATE 115200
 
 #define GUN_DATA               0x04
-#define PLAYER_ID              0x01 //0x01 or 0x02
+#define PLAYER_ID              0x02 //0x01 or 0x02
 #define PAD_BYTE               0x00
 #define REQUEST_H              0x48
 
@@ -154,7 +154,6 @@ void shoot_IR()
 }
 
 void send_data() {
-  if(ammo_count > 0) {
     uint8_t package[20];
     package[19] = (uint8_t) getChecksum();
     package[18] = (uint8_t) PAD_BYTE;
@@ -183,7 +182,6 @@ void send_data() {
     } else {
       message_id = 0;
     }
-  }
 }
 
 void printHandshakeAck() {
