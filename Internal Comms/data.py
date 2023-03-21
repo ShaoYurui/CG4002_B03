@@ -225,12 +225,13 @@ class ImuData:
 
     def is_moving(self):
         if self.acc_x + self.acc_y + self.acc_z + self.gyro_x + self.gyro_y + self.gyro_z == 0:
-            return False
+            return True
         return True
 
 
 def get_file_index():
-    os.mkdir(file_path)
+    if(not os.path.exists(file_path)):
+        os.mkdir(file_path)
     global file_name, file_index
     data_file_path = f"""./{file_path}/{file_name}_Action_{ACTION_NUM}_{file_index}.csv"""
     path = Path(data_file_path)
