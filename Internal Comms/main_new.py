@@ -71,7 +71,7 @@ class PeripheralDevice(threading.Thread):
     def setup_connection(self):
         print("Connecting device {id}".format(id=self.pid))
         try:
-            self.peripheral.connect(mac[i])
+            self.peripheral.connect(mac[self.pid])
             self.connection = True
             self.peripheral.setDelegate(CommunicationDelegate(self.pid))
             self.svc = self.peripheral.getServiceByUUID('0000dfb0-0000-1000-8000-00805f9b34fb')
@@ -88,7 +88,7 @@ class PeripheralDevice(threading.Thread):
         if not self.setup:
             print("Try setting up device[{id}] again".format(id=self.pid))
             try:
-                self.peripheral.connect(mac[i])
+                self.peripheral.connect(mac[self.pid])
                 self.connection = True
                 self.peripheral.setDelegate(CommunicationDelegate(self.pid))
                 self.svc = self.peripheral.getServiceByUUID('0000dfb0-0000-1000-8000-00805f9b34fb')
@@ -198,7 +198,7 @@ class CommunicationDelegate(btle.DefaultDelegate):
             if indata == ACK_H:
                 d[self.pid].data = d[self.pid].data[20:]
             else:  # received data packet
-                if not verify_valid_data(self.pid):
+                if not self.verify_valid_data():
                     indata = d[self.pid].data[0:20]
                     print("Device[{id}] received invalid data: {dat}".format(id=self.pid, dat=indata.hex()))
                 else:
@@ -313,7 +313,7 @@ class RelayNode(threading.Thread):
 
     def send_data(self):
         try:
-            msg = convert_to_json(self.data_to_cloud.get_nowait())
+            msg = self.convert_to_json(self.data_to_cloud.get_nowait())
             msg_length = str(len(msg)) + '_'
             try:
                 self.socket.sendall(msg_length.encode("utf-8"))
@@ -356,7 +356,7 @@ class RelayNode(threading.Thread):
             if len(data) == 0:
                 return
             msg = json.loads(data.decode("utf8"))  # Decode raw bytes to UTF-8
-            extract_msg(msg)
+            self.extract_msg(msg)
             self.socket.setblocking(0)
 
         except BlockingIOError:
