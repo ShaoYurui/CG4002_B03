@@ -13,6 +13,8 @@ from multiprocessing import Queue
 from multiprocessing import Pipe
 from queue import Empty
 from timeit import default_timer as timer
+from datetime import datetime
+
 
 """
 class player(threading.Thread):
@@ -274,7 +276,7 @@ class player(threading.Thread):
 
 class player(threading.Thread):
 
-    def __init__(self, eval_to_player_queue, player_to_eval_queue):
+    def __init__(self, eval_to_player_queue, player_to_eval_queue, update_queue):
         self.max_grenades           = 2
         self.max_shields            = 3
         self.bullet_hp              = 10
@@ -296,13 +298,14 @@ class player(threading.Thread):
         self.shield_activated = False
         self.shield_activate_time = 0
         
-        self.playerstate = None
+        self.playerstate = self.get_dict()
 
         self.clock_offset = 0
         self.offset_calculated = False
 
         self.eval_to_player_queue = eval_to_player_queue
         self.player_to_eval_queue = player_to_eval_queue
+        self.update_queue = update_queue
 
         threading.Thread.__init__(self)
 
@@ -336,8 +339,6 @@ class player(threading.Thread):
         self.shield_respawn_starttime = 0
         self.shield_respawn_time = 0
         
-        self.playerstate = None
-
         return
     
     def perform_shoot(self):
@@ -369,10 +370,8 @@ class player(threading.Thread):
         # Execute only if there are shields left and no shield is active and it's not under cooldown
         if ((self.num_shield > 0) and (self.shield_time == 0) and (self.shield_activated == False)):
             self.num_shield = self.num_shield - 1
-            self.shield_activated = True
             self.shield_time = self.shield_max_time
             self.shield_health = self.shield_health_max
-            self.shield_activate_time = timer()
         
         self.playerstate = self.get_dict()
         print(self.playerstate)
@@ -468,6 +467,11 @@ class player(threading.Thread):
         self.playerstate = self.get_dict()
         return
 
+    def perform_logout(self):
+        self.action = "logout"
+        self.playerstate = self.get_dict()
+        return
+
 
     def update_shield_timings(self):
         
@@ -483,6 +487,7 @@ class player(threading.Thread):
             self.shield_activate_time = 0
             self.shield_respawn_cooldown = True
             self.shield_time = 0
+            self.playerstate = self.get_dict()
         
         self.playerstate = self.get_dict()
         return
@@ -503,51 +508,47 @@ class player(threading.Thread):
         self.playerstate = self.get_dict()
         return
     """
+    def perform_command(self):
 
+        try: 
+            command = self.eval_to_player_queue.get()
+            print("Command obtained at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
 
-    def run(self):
-        while True:
-            self.update_shield_timings()
-            # self.update_respawn_timings()
+            if command == "perform_shoot":
+                self.perform_shoot()
+            elif command == "perform_grenade":
+                self.perform_grenade()
+            elif command == "perform_shield":
+                self.perform_shield()
+            elif command == "perform_reload":
+                self.perform_reload()
+            elif command == "bullet_hit":
+                self.bullet_hit()
+            elif command == "grenade_hit":
+                self.grenade_hit()
+            elif command == "no_apply":
+                self.no_apply()
+            elif command == "logout":
+                self.perform_logout()
+            
+            self.player_to_eval_queue.put(self.playerstate)
+            print("Action Performed at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
 
-            try: 
-                command = self.eval_to_player_queue.get()
-
-                if command == "perform_shoot":
-                    self.perform_shoot()
-                elif command == "perform_grenade":
-                    self.perform_grenade()
-                elif command == "perform_shield":
-                    self.perform_shield()
-                elif command == "perform_reload":
-                    self.perform_reload()
-                elif command == "bullet_hit":
-                    self.bullet_hit()
-                elif command == "grenade_hit":
-                    self.grenade_hit()
-                elif command == "no_apply":
-                    self.no_apply()
-                elif command == "logout":
-                    self.player_to_eval_queue.put("logout")
-                    sys.exit()
-                
-                self.player_to_eval_queue.put(self.playerstate)
-
-            except Empty:
-                continue
-
-            new_playerstate = self.eval_to_player_queue.get()
+        except Exception:
+            print("THROTTLED P2222222222")
+            return
+    
+    def update_from_eval(self):
+        try:
+            new_playerstate = self.update_queue.get()
             # Obtain Clock offset to ensure error is not propagated
             self.clock_offset = self.clock_offset + (self.playerstate["shield_time"] - new_playerstate["shield_time"])
             # self.shield_activate_time = self.shield_activate_time - (self.playerstate["shield_time"] - new_playerstate["shield_time"])
 
-            # Situation where shield is false negative
-            if ((new_playerstate["action"] == "shield") and (self.playerstate["action"] != "shield")):
+            # Only activate shield once it's cross-confirmed that shield must be activated
+            if (new_playerstate["action"] == "shield"):
                 self.shield_activated = True
-            
-            elif ((new_playerstate["action"] != "shield") and (self.playerstate["action"] == "shield")):
-                if self.shield_time == self.shield_max_time:
-                    self.shield_activated = False
+                self.shield_activate_time = timer()
             
             # Fixing Player State
             self.playerstate = new_playerstate
@@ -558,7 +559,19 @@ class player(threading.Thread):
             self.shield_time    = self.playerstate["shield_time"]
             self.shield_health  = self.playerstate["shield_health"]
             self.num_shield     = self.playerstate["num_shield"]
-            self.num_deaths     = self.playerstate["num_deaths"]            
+            self.num_deaths     = self.playerstate["num_deaths"]
+        except Exception:
+            print("THROTTLED P333!")
+            return
+
+
+
+
+    def run(self):
+        while True:
+            self.update_shield_timings()
+            self.perform_command()
+            self.update_from_eval()           
     
 
         

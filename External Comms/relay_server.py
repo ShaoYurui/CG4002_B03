@@ -45,7 +45,7 @@ DEFAULT_GAME_STATE              = {
 
 class relay_server(threading.Thread):
 
-    def __init__(self, ip_addr, port_num, default_gamestate, accelerometer_queue, gamestate_queue):
+    def __init__(self, ip_addr, port_num, default_gamestate, accelerometer_queue, calc_gamestate_queue, eval_gamestate_queue):
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind((ip_addr, port_num))
@@ -56,22 +56,35 @@ class relay_server(threading.Thread):
         self.dataframe = pd.DataFrame(columns=["player_id", "message_id", "x_data", "y_data", "z_data"])
         self.gamestate_data = default_gamestate
         self.accelerometer_queue = accelerometer_queue
-        self.gamestate_queue = gamestate_queue
+        self.calc_gamestate_queue = calc_gamestate_queue
+        self.eval_gamestate_queue = eval_gamestate_queue
 
         threading.Thread.__init__(self)        
 
 
     def send_data(self):
         success = True
-        self.socket.setblocking(0)
+        """
         try:
-            self.gamestate_data = self.gamestate_queue.get_nowait()
+            self.gamestate_data = self.calc_gamestate_queue.get_nowait()
+            print("Calc Gamestate data obtained")
             msg = json.dumps(self.gamestate_data)
             msg_length = str(len(msg))+'_'
             if self.gamestate_data == "logout":
                 sys.exit()
         except Empty:
-            self.socket.setblocking(0)
+            # print("No Calc Gamestate Data")
+            pass
+        """
+        try:
+            self.gamestate_data = self.eval_gamestate_queue.get_nowait()
+            print("Eval gamestate data obtained")
+            msg = json.dumps(self.gamestate_data)
+            msg_length = str(len(msg))+'_'
+            if self.gamestate_data == "logout":
+                sys.exit()
+        except Empty:
+            #print("No Eval Gamestate Data")
             return
         try:
             for conn in self.connection_list:
@@ -83,7 +96,6 @@ class relay_server(threading.Thread):
         except OSError:
             print("connection between relay_server and relay_client lost")
             success = False
-        self.socket.setblocking(0)
 
         return success
 
@@ -130,12 +142,9 @@ class relay_server(threading.Thread):
                 self.accelerometer_queue.put(msg)
                 print("Put into accelerometer queue at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
             
-            elif msg["message_type"] == 6:
-                if ((msg["acc_x"] == 0) and (msg["acc_y"] == 0) and (msg["acc_z"] == 0)
-                    and (msg["gyro_x"] == 0) and (msg["gyro_y"] == 0) and (msg["gyro_z"] == 0)):
-                    continue
-                else:
-                    self.accelerometer_queue.put(msg)
+            elif msg["message_type"] == 6 and msg["player_id"] == 1:
+                #print("IMU DATA at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+                self.accelerometer_queue.put(msg)
 
         return
 
@@ -147,16 +156,18 @@ class relay_server(threading.Thread):
             self.connection_list.append(connection)
             print("relay_server is now connected to " + str(address))
 
+        # self.gamestate_queue.get()
         while True:
             # Receives Accelerometer Data From relay_client for 1s
-            
+
+            self.send_data()
             self.receive_data()
             
             # Sends GameState Data To relay_client
-            self.send_data()
+            #self.send_data()
 
 
-"""
+    """
 class relay_server(threading.Thread):
 
     def __init__(self, ip_addr, port_num, default_gamestate, accelerometer_queue, gamestate_queue):
