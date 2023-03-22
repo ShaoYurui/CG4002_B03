@@ -137,7 +137,7 @@ class PeripheralDevice(threading.Thread):
                     print("Device[{id}] handshake ACK received".format(id=self.pid))
                     self.handshake_done = True
                     return
-                if time.time() > handshake_timeout:
+                elif time.time() > self.handshake_timeout:
                     print("Device[{id}] resend handshake".format(id=self.pid))
                     self.handshake_start = False
                     self.handshake_done = False
