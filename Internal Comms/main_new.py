@@ -379,7 +379,7 @@ if __name__ == "__main__":
     threads = list()
 
     for x in range(nBeetle):
-        d.append(PeripheralDevice(i))
+        d.append(PeripheralDevice(x))
         threads.append(d[x])
 
     c.append(RelayNode(address, port))
