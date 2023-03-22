@@ -6,15 +6,19 @@
 #define LOOP_TIME             ((1.0f / SEND_FREQ) * 1000) // ms
 #define BAUD_RATE             115200
 /////////////////////////////////////////////////////////////////////////////////////////////
+#define LED_GND               3
+#define LED_PIN               4
 ////////////////////////////// IMU  PREPROCESS DEFINES///////////////////////////////////////
-#define CALIBRATE_SAMPLE_NUM  200
+#define GRAVITY_RAW_READING   16384
+#define CALIBRATE_SAMPLE_NUM  1000
 #define IMU_AG_SCALE_FACTOR   1000
-#define IMU_AG_THRESHOLD      100
-#define IMU_NO_MOVE_THRESHOLD 10
+#define IMU_AG_SUM_THRESHOLD  500
+#define IMU_AG_PROD_THRESHOLD 1000
+#define IMU_NO_MOVE_THRESHOLD 50
 /////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// HANDSHAKE PRE_COMPILE DEFINES ////////////////////////////////
 #define IMU_DATA               0x06
-#define PLAYER_ID              0x01 //0x01 or 0x02
+#define PLAYER_ID              0x02 //0x01 or 0x02
 #define PAD_BYTE               0x00
 #define REQUEST_H              0x48
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -46,8 +50,13 @@ unsigned long imu_time ;
 void setup() 
 {
   Serial.begin(BAUD_RATE);//initial the Serial
+  pinMode(LED_GND,OUTPUT);
+  pinMode(LED_PIN,OUTPUT);
+  digitalWrite(LED_GND,LOW);
+  digitalWrite(LED_PIN,HIGH);
   setup_IMU();
   calibrate_IMU();
+  digitalWrite(LED_PIN,LOW);
 }
 
 void loop()
@@ -136,13 +145,13 @@ void read_IMU_data()
 void calibrate_IMU()
 {
   reset_cal_bias();
-  delay(50);
+  delay(100);
   for(int i = 0; i < CALIBRATE_SAMPLE_NUM; i++)
   {
     read_IMU_data();
     accelerometer_x_cal += accelerometer_x;
     accelerometer_y_cal += accelerometer_y;
-    accelerometer_z_cal += accelerometer_z;
+    accelerometer_z_cal += (accelerometer_z + GRAVITY_RAW_READING);
     gyro_x_cal += gyro_x;
     gyro_y_cal += gyro_y;
     gyro_z_cal += gyro_z; 
@@ -191,23 +200,35 @@ bool is_movement_detected()
   scale_IMU_data();
   float acc_sqrt = 1.0f * sqrt(accelerometer_x_scaled * accelerometer_x_scaled + 
                         accelerometer_y_scaled * accelerometer_y_scaled +
-                        accelerometer_z_scaled * accelerometer_z_scaled) ;
+                        accelerometer_z_scaled * accelerometer_z_scaled);
 
   float gyro_sqrt = 1.0f * sqrt(gyro_x_scaled * gyro_x_scaled + 
                           gyro_y_scaled * gyro_y_scaled +
                           gyro_z_scaled * gyro_z_scaled);
+  
+  long acc_prod = sqrt(accelerometer_x_scaled * accelerometer_x_scaled) *
+                  sqrt(accelerometer_y_scaled * accelerometer_y_scaled) * 
+                  sqrt(accelerometer_z_scaled * accelerometer_z_scaled);
 
-  if ( acc_sqrt * gyro_sqrt > IMU_AG_THRESHOLD)
+  long gyro_prod = sqrt(gyro_x_scaled * gyro_x_scaled) *
+                    sqrt(gyro_y_scaled * gyro_y_scaled) * 
+                    sqrt(gyro_z_scaled * gyro_z_scaled);     
+
+  if (( acc_sqrt * gyro_sqrt > IMU_AG_SUM_THRESHOLD) && (acc_prod > IMU_AG_PROD_THRESHOLD || gyro_prod > IMU_AG_PROD_THRESHOLD))
   {
-    no_movement_count--;
-    if(no_movement_count <=0)
-    {
-      no_movement_count = 0;
-    }
+    no_movement_count = 0;
     return true;
   }
 
-  no_movement_count++;
+  if (( acc_sqrt * gyro_sqrt > IMU_AG_SUM_THRESHOLD/4) && (acc_prod > IMU_AG_PROD_THRESHOLD/4 || gyro_prod > IMU_AG_PROD_THRESHOLD/4))
+  {
+    no_movement_count++;
+  }
+  else
+  {
+    no_movement_count = no_movement_count + 2;
+  }
+  
   if(no_movement_count >= IMU_NO_MOVE_THRESHOLD)
   {
     no_movement_count = IMU_NO_MOVE_THRESHOLD;

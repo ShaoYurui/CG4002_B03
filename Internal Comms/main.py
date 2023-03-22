@@ -29,7 +29,7 @@ need_n_corrupt = False
 need_better_display = False
 need_write_to_file = False
 
-PLAYER_ID = b'\x02' # \x01 or \x02
+PLAYER_ID = b'\x01' # \x01 or \x02
 
 ACK = b'\x41'
 NAK = b'\x4E'
@@ -43,11 +43,13 @@ mac = list()
 if PLAYER_ID == b'\x01':
     mac.append('80:30:dc:d9:1f:93')  # gun x
     mac.append('34:15:13:22:a1:37')  # vest x
-    mac.append('80:30:dc:e9:1c:74')  # imu X
+    #mac.append('80:30:dc:e9:1c:74')  # imu X
+    mac.append('80:30:dc:e9:08:d7')  # imu # swapped for testing
 elif PLAYER_ID == b'\x02':
     mac.append('34:14:b5:51:d9:04') # gun
     mac.append('80:30:dc:d9:23:27') # vest
-    mac.append('80:30:dc:e9:08:d7') # imu
+    #mac.append('80:30:dc:e9:08:d7') # imu
+    mac.append('80:30:dc:e9:1c:74')  # imu X # swapped for testing
 
 d = list() #devices list
 c = list() #connection to cloud
@@ -87,8 +89,6 @@ class RelayNode():
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_address = (ip_addr, port_num)
 
-        #self.data_to_cloud = 0
-        #self.data_to_hw = 0
         self.data_to_cloud = Queue()
         self.data_to_gun = Queue()
         self.data_to_vest = Queue()
@@ -149,9 +149,9 @@ class CommunicationDelegate(btle.DefaultDelegate):
                     d[self.pid].data = d[self.pid].data[20:]
 
                     c[0].data_to_cloud.put(indata)
-                    if indata[0] != 6:
+                    #if indata[0] != 6:
                         #print("put data to cloud in queue: {ts}".format(ts=time.time()))
-                        print("put data to cloud in queue: {ts}".format(ts=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+                    #print("put data to cloud in queue: {ts}".format(ts=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
 
                 if need_n_packet_received:
                     d[self.pid].n_packet_received += 1
@@ -309,7 +309,7 @@ def handleBeetle(i):
             elif d[i].handshake_start == 0:  # check handshake has begun
                 try:
                     time.sleep(5)
-                    timeout = time.time() + 10  # 10s from now
+                    timeout = time.time() + 5  # 10s from now
                     d[i].ch.write(REQUEST_H)
                     d[i].handshake_start = 1
                     displayOutput(i * info_row, "Device[{id}] begin handshake".format(id=i))
@@ -364,14 +364,6 @@ def handleBeetle(i):
                     displayOutput(i * info_row, "Device[{id}] disconnected".format(id=i))
                     d[i].connection = 0
 
-                # testing only, send for 10s
-                #if (time.time() - d[i].start_time >= 10) and (time.time() - d[i].start_time <= 1000):
-                #    return
-
-                #for testing only, send 1000 bytes
-                #if d[i].n_packet_received >= 1000:
-                #    return
-
         except btle.BTLEInternalError:
             d[i].peripheral = btle.Peripheral()
             d[i].svc = 0
@@ -420,10 +412,12 @@ def convert_to_json(data):
 
 
 def extractMsg(msg):
+    print(msg)
+
     #default value
     bullets = 6
     hp = 10
-    shield = 0 #for testing only
+    shield = 0
 
     if PLAYER_ID == b'\x01':
         bullets = msg["p1"]["bullets"]
@@ -438,9 +432,6 @@ def extractMsg(msg):
 
     bullets = (bullets << 4) | 128
     hp = ((shield << 5) + (hp << 1)) | 128
-
-    #d[0].ch.write(bullets.to_bytes(1, 'big'))
-    #d[1].ch.write(hp.to_bytes(1, 'big'))
 
     print("bullet = {b}".format(b=hex(bullets)))
     print("shield+hp = {sh}".format(sh=hex(hp)))
@@ -487,10 +478,10 @@ def handleConnection():
             try:
                 c[0].socket.sendall(msg_length.encode("utf-8"))
                 c[0].socket.sendall(msg.encode("utf-8"))
-                if (not need_better_display) and msg_b[0] != 6:
-                    print(msg)
+                #if not need_better_display:
+                    #print(msg)
                     #print("data sent to cloud: {ts}".format(ts=time.time()))
-                    print("data sent to cloud: {ts}".format(ts=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+                    #print("data sent to cloud: {ts}".format(ts=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
             except OSError:
                 if not need_better_display:
                     print("connection between relay_client and relay_server lost")
@@ -548,6 +539,7 @@ def handleConnection():
             msg = json.loads(data.decode("utf8"))  # Decode raw bytes to UTF-8
             #print(msg)
             extractMsg(msg)
+            c[0].socket.setblocking(0)
 
         except BlockingIOError:
             continue
@@ -590,4 +582,3 @@ if __name__ == "__main__":
 
     for t in threads:
         t.start()
-        #t.join() #
