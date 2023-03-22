@@ -27,9 +27,10 @@ class relay_client(threading.Thread):
         threading.Thread.__init__(self)
 
     def send_data(self):
+        self.socket.setblocking(0)
         success = True
         # Sends Sample Data (For Now)
-        self.accelerometer_data = {"player_id": 1, "message_type": 4, "acc_x": 0.005, "acc_y": 0.0015, "acc_z": 0.0025, "gyro_x": 0.0015, "gyro_y": 0.0015, "gyro_z": 0.0015}
+        self.accelerometer_data = {"player_id": 1, "message_type": 6, "acc_x": 0.5, "acc_y": 0.5, "acc_z": 0.5, "gyro_x": 0.5, "gyro_y": 0.5, "gyro_z": 0.5}
         
         msg = json.dumps(self.accelerometer_data)
         msg_length = str(len(msg))+'_'
@@ -37,14 +38,15 @@ class relay_client(threading.Thread):
         try:
             self.socket.sendall(msg_length.encode("utf-8"))
             self.socket.sendall(msg.encode("utf-8"))
+            self.socket.setblocking(0)
         except OSError:
-            print("connection between relay_client and relay_server lost")
-            success = False
+            return
         return success
 
     def receive_data(self):
         try: 
             data = b''
+            self.socket.setblocking(0)
             while not data.endswith(b'_'):
                 _d = self.socket.recv(1)
                 if not _d:
@@ -57,6 +59,7 @@ class relay_client(threading.Thread):
 
             data = data.decode("utf-8")
             length = int(data[:-1])
+            self.socket.setblocking(1)
 
             data = b''
             while len(data) < length:
@@ -71,10 +74,13 @@ class relay_client(threading.Thread):
             msg = json.loads(data.decode("utf8"))  # Decode raw bytes to UTF-8
 
             self.gamestate_data = msg
+            print(self.gamestate_data)
 
         except ConnectionResetError:
             print('Connection Reset')
             self.stop()
+        except BlockingIOError:
+            return
 
         return
 
@@ -86,7 +92,6 @@ class relay_client(threading.Thread):
             # Send Data for 1s
 
             self.send_data()
-            print("From relay_client: Accelerometer Data Sent!")
             
             # Receive Data
             self.receive_data()
