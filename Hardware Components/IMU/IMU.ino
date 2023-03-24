@@ -12,13 +12,13 @@
 #define GRAVITY_RAW_READING   16384
 #define CALIBRATE_SAMPLE_NUM  1000
 #define IMU_AG_SCALE_FACTOR   1000
-#define IMU_AG_SUM_THRESHOLD  500
-#define IMU_AG_PROD_THRESHOLD 1000
-#define IMU_NO_MOVE_THRESHOLD 50
+#define IMU_AG_SUM_THRESHOLD  1000
+#define IMU_AG_PROD_THRESHOLD 1200
+#define IMU_NO_MOVE_THRESHOLD 75
 /////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// HANDSHAKE PRE_COMPILE DEFINES ////////////////////////////////
 #define IMU_DATA               0x06
-#define PLAYER_ID              0x02 //0x01 or 0x02
+#define PLAYER_ID              0x01 //0x01 or 0x02
 #define PAD_BYTE               0x00
 #define REQUEST_H              0x48
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -214,19 +214,34 @@ bool is_movement_detected()
                     sqrt(gyro_y_scaled * gyro_y_scaled) * 
                     sqrt(gyro_z_scaled * gyro_z_scaled);     
 
-  if (( acc_sqrt * gyro_sqrt > IMU_AG_SUM_THRESHOLD) && (acc_prod > IMU_AG_PROD_THRESHOLD || gyro_prod > IMU_AG_PROD_THRESHOLD))
+  if (( acc_sqrt * gyro_sqrt > IMU_AG_SUM_THRESHOLD) || (acc_prod > IMU_AG_PROD_THRESHOLD || gyro_prod > IMU_AG_PROD_THRESHOLD))
   {
-    no_movement_count = 0;
+    if(no_movement_count == IMU_NO_MOVE_THRESHOLD)
+    {
+      no_movement_count = 0;
+    }
+    else
+    {
+      no_movement_count = no_movement_count + 1;
+      if(no_movement_count >= IMU_NO_MOVE_THRESHOLD)
+      {
+        no_movement_count = IMU_NO_MOVE_THRESHOLD - 1;
+      }
+    }
     return true;
   }
 
-  if (( acc_sqrt * gyro_sqrt > IMU_AG_SUM_THRESHOLD/4) && (acc_prod > IMU_AG_PROD_THRESHOLD/4 || gyro_prod > IMU_AG_PROD_THRESHOLD/4))
+  if (( acc_sqrt * gyro_sqrt > 1.0f *IMU_AG_SUM_THRESHOLD/10) || (acc_prod > 1.0f *IMU_AG_PROD_THRESHOLD/10 || gyro_prod > 1.0f * IMU_AG_PROD_THRESHOLD/10))
   {
-    no_movement_count++;
+    no_movement_count = no_movement_count + 1;
+  }
+  else if(no_movement_count <= IMU_NO_MOVE_THRESHOLD)
+  {
+    no_movement_count = no_movement_count + 1;
   }
   else
   {
-    no_movement_count = no_movement_count + 2;
+    no_movement_count = no_movement_count + 20;
   }
   
   if(no_movement_count >= IMU_NO_MOVE_THRESHOLD)
