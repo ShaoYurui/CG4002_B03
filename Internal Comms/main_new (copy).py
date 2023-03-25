@@ -59,6 +59,10 @@ class PeripheralDevice(threading.Thread):
         self.handshake_timeout = 0
         self.data = bytearray(b'')
 
+        self.current_gun_state = 0
+        self.current_vest_state = 0
+        self.game_state_timeout = 0
+
         threading.Thread.__init__(self)
 
     def get_cs(self, inByte):
@@ -150,27 +154,45 @@ class PeripheralDevice(threading.Thread):
         self.start_handshake()
         self.check_handshake_finish()
 
+    def send_data(self):
+        try:
+            if self.pid == 0:
+                gun_data = c[0].data_to_gun.get_nowait()
+                gun_data_b = gun_data.to_bytes(1, 'big')
+                self.ch.write(gun_data_b)
+                self.current_gun_state = gun_data_b
+                self.game_state_timeout = time.time() + 0.5
+                print("d[{i}] send data to gun: {bullets}".format(i=self.pid, bullets=gun_data))
+            elif self.pid == 1:
+                vest_data = c[0].data_to_vest.get_nowait()
+                vest_data_b = vest_data.to_bytes(1, 'big')
+                self.ch.write(vest_data_b)
+                self.current_vest_state = vest_data_b
+                self.game_state_timeout = time.time() + 0.5
+                print("d[{i}] send data to vest: {hp}".format(i=self.pid, hp=vest_data))
+        except Empty:
+            if self.pid == 0 and not self.current_gun_state == 0:
+                if time.time() > self.game_state_timeout:
+                    self.ch.wrtie(self.current_gun_state)
+                    self.game_state_timeout = time.time() + 0.5
+                    print("d[{i}] repeat data to gun: {bullets}".format(i=self.pid, bullets=self.current_gun_state))
+            elif self.pid == 1 and not self.current_vest_state == 0:
+                if time.time() > self.game_state_timeout:
+                    self.ch.wrtie(self.current_vest_state)
+                    self.game_state_timeout = time.time() + 0.5
+                    print("d[{i}] repeat data to vest: {hp}".format(i=self.pid, hp=self.current_vest_state))
+
+    def receive_data(self):
+        try:
+            self.peripheral.waitForNotifications(0.01)
+        except btle.BTLEDisconnectError:
+            print("Device[{id}] disconnected".format(id=self.pid))
+            self.connection = False
+
     def communicate(self):
         if self.connection and self.handshake_done:
-            try:
-                if self.pid == 0:
-                    gun_data = c[0].data_to_gun.get_nowait()
-                    gun_data_b = gun_data.to_bytes(1, 'big')
-                    self.ch.write(gun_data_b)
-                    print("d[{i}] send data to gun: {bullets}".format(i=self.pid, bullets=gun_data))
-                elif self.pid == 1:
-                    vest_data = c[0].data_to_vest.get_nowait()
-                    vest_data_b = vest_data.to_bytes(1, 'big')
-                    self.ch.write(vest_data_b)
-                    print("d[{i}] send data to vest: {hp}".format(i=self.pid, hp=vest_data))
-            except Empty:
-                pass
-
-            try:
-                self.peripheral.waitForNotifications(0.01)
-            except btle.BTLEDisconnectError:
-                print("Device[{id}] disconnected".format(id=self.pid))
-                self.connection = False
+            self.send_data()
+            self.receive_data()
 
     def run(self):
         self.setup_connection()
@@ -203,8 +225,6 @@ class CommunicationDelegate(btle.DefaultDelegate):
                     print("Device[{id}] received invalid data: {dat}".format(id=self.pid, dat=indata.hex()))
                 else:
                     indata = d[self.pid].data[0:20]
-                    #if self.pid == 2:
-                        #writeToFile(indata)
                     d[self.pid].data = d[self.pid].data[20:]
                     c[0].data_to_cloud.put(indata)
 
@@ -258,21 +278,6 @@ class CommunicationDelegate(btle.DefaultDelegate):
                 return True
         return False
 
-'''
-def writeToFile(indata):
-    timestamp = struct.unpack('>L', indata[3:7])[0]
-    acc_x = struct.unpack('>h', indata[7:9])[0]
-    acc_y = struct.unpack('>h', indata[9:11])[0]
-    acc_z = struct.unpack('>h', indata[11:13])[0]
-    gyro_x = struct.unpack('>h', indata[13:15])[0]
-    gyro_y = struct.unpack('>h', indata[15:17])[0]
-    gyro_z = struct.unpack('>h', indata[17:19])[0]
-
-    with open("raw_data.csv", "a") as f:
-        f.write(
-            f"""{timestamp},{0},{acc_x},{acc_y},{acc_z},{gyro_x},{gyro_y},{gyro_z}\n""")
-        f.close()
-'''
 
 class RelayNode(threading.Thread):
     def __init__(self, ip_addr, port_num):
