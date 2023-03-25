@@ -39,7 +39,7 @@ long accelerometer_x_cal, accelerometer_y_cal, accelerometer_z_cal;
 long gyro_x_cal, gyro_y_cal, gyro_z_cal; 
 float accelerometer_x_scaled, accelerometer_y_scaled, accelerometer_z_scaled; 
 float gyro_x_scaled, gyro_y_scaled, gyro_z_scaled;
-int no_movement_count = IMU_NO_MOVE_THRESHOLD;
+int16_t movement_count = IMU_NO_MOVE_THRESHOLD;
 /////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// IMU PREPROCESS VARIABLES /////////////////////////////////////
 int16_t accelerometer_x_processed, accelerometer_y_processed, accelerometer_z_processed; 
@@ -216,41 +216,41 @@ bool is_movement_detected()
 
   if (( acc_sqrt * gyro_sqrt > IMU_AG_SUM_THRESHOLD) || (acc_prod > IMU_AG_PROD_THRESHOLD || gyro_prod > IMU_AG_PROD_THRESHOLD))
   {
-    if(no_movement_count == IMU_NO_MOVE_THRESHOLD)
+    if(movement_count == IMU_NO_MOVE_THRESHOLD)
     {
-      no_movement_count = 0;
+      movement_count = 0;
     }
     else
     {
-      no_movement_count = no_movement_count + 1;
-      if(no_movement_count >= IMU_NO_MOVE_THRESHOLD)
+      movement_count = movement_count + 1;
+      if(movement_count >= IMU_NO_MOVE_THRESHOLD)
       {
-        no_movement_count = IMU_NO_MOVE_THRESHOLD - 1;
+        movement_count = IMU_NO_MOVE_THRESHOLD - 10;
       }
     }
     return true;
   }
 
-  if (( acc_sqrt * gyro_sqrt > 1.0f *IMU_AG_SUM_THRESHOLD/10) || (acc_prod > 1.0f *IMU_AG_PROD_THRESHOLD/10 || gyro_prod > 1.0f * IMU_AG_PROD_THRESHOLD/10))
+  else if (( acc_sqrt * gyro_sqrt > 1.0f *IMU_AG_SUM_THRESHOLD/10) || 
+      (acc_prod > 1.0f *IMU_AG_PROD_THRESHOLD/10 || gyro_prod > 1.0f * IMU_AG_PROD_THRESHOLD/10) ||
+      (movement_count <= IMU_NO_MOVE_THRESHOLD))
   {
-    no_movement_count = no_movement_count + 1;
-  }
-  else if(no_movement_count <= IMU_NO_MOVE_THRESHOLD)
-  {
-    no_movement_count = no_movement_count + 1;
+    movement_count = movement_count + 1;
   }
   else
   {
-    no_movement_count = no_movement_count + 20;
+    movement_count = movement_count + 20;
   }
   
-  if(no_movement_count >= IMU_NO_MOVE_THRESHOLD)
+  if(movement_count >= IMU_NO_MOVE_THRESHOLD)
   {
-    no_movement_count = IMU_NO_MOVE_THRESHOLD;
+    movement_count = IMU_NO_MOVE_THRESHOLD;
     return false;
   }
-
-  return true;
+  else
+  {
+    return true;
+  }
 }
 
 void print_IMU_raw_data()
