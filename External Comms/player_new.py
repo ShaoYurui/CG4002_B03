@@ -122,8 +122,6 @@ class player_new():
     
     
     def bullet_hit(self):
-
-        self.action = "none"
         
         # Case 1 : Shield is activated
         if self.shield_activated == True:
@@ -152,8 +150,6 @@ class player_new():
         return
     
     def grenade_hit(self):
-
-        self.action = "none"
         
         # Case 1 : Shield is activated
         if self.shield_activated == True:
@@ -195,7 +191,6 @@ class player_new():
         return
     
     def no_apply(self):
-        self.action = "none"
         self.playerstate = self.get_dict()
         return
 

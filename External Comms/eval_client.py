@@ -17,6 +17,7 @@ from multiprocessing import Queue
 from multiprocessing import Pipe
 from queue import Empty
 from datetime import datetime
+from player_new import player_new
 
 
 
@@ -30,13 +31,7 @@ class eval_client(threading.Thread):
                  , game_mode
                  , default_game_state
                  , gamestate_queue
-                 , prediction_queue
-                 , eval_to_p1_queue
-                 , eval_to_p2_queue
-                 , p1_to_eval_queue
-                 , p2_to_eval_queue
-                 , eval_to_p1_update_queue
-                 , eval_to_p2_update_queue):
+                 , prediction_queue):
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_address = (ip_addr, port_num)
@@ -46,12 +41,10 @@ class eval_client(threading.Thread):
         self.predicted_gamestate = default_game_state
         self.gamestate_queue = gamestate_queue
         self.prediction_queue = prediction_queue
-        self.eval_to_p1_queue = eval_to_p1_queue
-        self.eval_to_p2_queue = eval_to_p2_queue
-        self.p1_to_eval_queue = p1_to_eval_queue
-        self.p2_to_eval_queue = p2_to_eval_queue
-        self.eval_to_p1_update_queue = eval_to_p1_update_queue
-        self.eval_to_p2_update_queue = eval_to_p2_update_queue
+        self.p1_received = False
+        self.p2_received = False
+        self.p1 = player_new()
+        self.p2 = player_new()
 
         threading.Thread.__init__(self)
     
@@ -120,6 +113,7 @@ class eval_client(threading.Thread):
             sys.exit()
 
         except BlockingIOError:
+            #print("no_update")
             return "no_update"
 
     
@@ -128,62 +122,71 @@ class eval_client(threading.Thread):
         # Bullet fired and hit
         if command == 5:
             if ((sender == 1) and (receiver == 2)):
-                self.eval_to_p1_queue.put("perform_shoot")
+                self.p1.perform_shoot()
                 if (self.predicted_gamestate["p1"]["bullets"] > 0):
-                    self.eval_to_p2_queue.put("bullet_hit")
+                    self.p2.bullet_hit()
                 else:
-                    self.eval_to_p2_queue.put("no_apply")
-
+                    self.p2.no_apply()
 
             elif ((sender == 2) and (receiver == 1)):
                 if (self.predicted_gamestate["p2"]["bullets"] > 0):
-                    self.eval_to_p1_queue.put("bullet_hit")
+                    self.p1.bullet_hit()
                 else:
-                    self.eval_to_p1_queue.v("no_apply")
-                self.eval_to_p2_queue.put("perform_shoot")
+                    self.p1.no_apply()
+                self.p2.perform_shoot()
 
         # Grenade
         elif command == 1:
             if ((sender == 1) and (receiver == 2)):
-                self.eval_to_p1_queue.put("perform_grenade")
+                self.p1.perform_grenade()
                 if (self.predicted_gamestate["p1"]["grenades"] > 0):
-                    self.eval_to_p2_queue.put("grenade_hit")
+                    self.p2.grenade_hit()
                 else:
-                    self.eval_to_p2_queue.put("no_apply")
+                    self.p2.no_apply()
             elif ((sender == 2) and (receiver == 1)):
                 if (self.predicted_gamestate["p2"]["grenades"] > 0):
-                    self.eval_to_p1_queue.put("grenade_hit")
+                    self.p1.grenade_hit()
                 else:
-                    self.eval_to_p1_queue.put("no_apply")
-                self.eval_to_p2_queue.put("perform_grenade")
+                    self.p1.no_apply()
+                self.p2.perform_grenade()
         
         # Shield
         elif command == 3:
             if ((sender == 1) and (receiver == 2)):
-                self.eval_to_p1_queue.put("perform_shield")
-                self.eval_to_p2_queue.put("no_apply")
+                self.p1.perform_shield()
+                self.p2.no_apply()
             elif ((sender == 2) and (receiver == 1)):
-                self.eval_to_p1_queue.put("no_apply")
-                self.eval_to_p2_queue.put("perform_shield")
+                self.p1.no_apply()
+                self.p2.perform_shield()
 
         # Reload
         elif command == 2:
             if ((sender == 1) and (receiver == 2)):
-                self.eval_to_p1_queue.put("perform_reload")
-                self.eval_to_p2_queue.put("no_apply")
+                self.p1.perform_reload()
+                self.p2.no_apply()
             elif ((sender == 2) and (receiver == 1)):
-                self.eval_to_p1_queue.put("no_apply")
-                self.eval_to_p2_queue.put("perform_reload")
+                self.p1.no_apply()
+                self.p2.perform_reload()
 
         # Bullet Fired, but missed
         if command == 6:
             if ((sender == 1) and (receiver == 2)):
-                self.eval_to_p1_queue.put("perform_shoot")
-                self.eval_to_p2_queue.put("no_apply")
+                self.p1.perform_shoot()
+                self.p2.no_apply()
 
             elif ((sender == 2) and (receiver == 1)):
-                self.eval_to_p2_queue.put("perform_shoot")
-                self.eval_to_p1_queue.put("no_apply")
+                self.p2.perform_shoot()
+                self.p1.no_apply()
+
+        # Logout
+        if command == 0:
+            if ((sender == 1) and (receiver == 2)):
+                self.p1.perform_logout()
+                self.p2.no_apply()
+
+            elif ((sender == 2) and (receiver == 1)):
+                self.p2.perform_logout()
+                self.p1.no_apply()
 
         return
     
@@ -192,17 +195,34 @@ class eval_client(threading.Thread):
         receiver = self.prediction_value["receiver"]
         command = self.prediction_value["command"]
 
+        self.p1.update_shield_timings()
+        self.p2.update_shield_timings()
+
         self.play_game(sender, receiver, command)
         print("Gamestate calculated!")
 
-        p1_playerstate = self.p1_to_eval_queue.get()
-        print("Player 1 Gamestate calculated at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
-        p2_playerstate = self.p2_to_eval_queue.get()
-        print("Player 2 Gamestate calculated at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
-
-        self.predicted_gamestate = {"p1": p1_playerstate, "p2": p2_playerstate}
+        self.predicted_gamestate = {"p1": self.p1.get_dict(), "p2": self.p2.get_dict()}
 
         return
+    
+    def prediction_filter(self, AI_prediction):
+        sender = AI_prediction["sender"]
+        receiver = AI_prediction["receiver"]
+
+        if (sender == 1) and (receiver == 2):
+            if self.p1_received == False:
+                self.p1_received = True
+                return True
+            elif self.p1_received == True:
+                return False
+                
+        elif (sender == 2) and (receiver == 1):
+            if self.p2_received == False:
+                self.p2_received = True
+                return True
+            elif self.p2_received == True:
+                return False
+            
 
 
     def run(self):
@@ -211,117 +231,80 @@ class eval_client(threading.Thread):
         print("eval_client is now connected to eval_server!")
 
         while True:
-            try:
-                if self.game_mode != 2:
-                    updated_gamestate = self.receive_data()
-                    if updated_gamestate != "no_update":
-                        self.predicted_gamestate = updated_gamestate
-
-                        self.gamestate_queue.put(updated_gamestate)
-                        self.eval_to_p1_update_queue.put(updated_gamestate["p1"])
-                        self.eval_to_p2_update_queue.put(updated_gamestate["p2"])
-
-                self.prediction_value = self.prediction_queue.get_nowait()
-
-                self.handle_gamestate()
-
-                """
-                if ((self.predicted_gamestate["p1"] == "logout") and (self.predicted_gamestate["p2"] == "logout")):
-                    self.gamestate_queue.put("logout")
-                """
-
-                if self.game_mode != 2:
-                    self.send_data()
-                    #updated_gamestate = self.receive_data()
-                
-                elif self.game_mode == 2:
-                    updated_gamestate = self.predicted_gamestate
-                    self.gamestate_queue.put(updated_gamestate)
-                    self.eval_to_p1_update_queue.put(updated_gamestate["p1"])
-                    self.eval_to_p2_update_queue.put(updated_gamestate["p2"])
-                """
-                # For checking for action validity
+            if self.game_mode != 2:
+                updated_gamestate = self.receive_data()
                 if updated_gamestate != "no_update":
-                    self.predicted_gamestate = updated_gamestate
-                
-                    self.gamestate_queue.put(updated_gamestate)
-                    self.eval_to_p1_update_queue.put(updated_gamestate["p1"])
-                    self.eval_to_p2_update_queue.put(updated_gamestate["p2"])
-                """
 
-            except Empty:
-                """
-                print("THROTTLED!")
-                if self.game_mode != 2:
-                    updated_gamestate = self.receive_data()
-                    if updated_gamestate != "no_update":
-                        self.predicted_gamestate = updated_gamestate
-                        self.gamestate_queue.put(updated_gamestate)
-                        self.eval_to_p1_update_queue.put(updated_gamestate["p1"])
-                        self.eval_to_p2_update_queue.put(updated_gamestate["p2"])
-                """
-                continue
-        """
-        while True:
-            try:
-                self.prediction_value = self.prediction_queue.get()
+                    # First, update the individual player states, then send evaluated gamestate to relay_server
+                    self.p1.update_from_eval(updated_gamestate["p1"])
+                    self.p2.update_from_eval(updated_gamestate["p2"])
+                    self.predicted_gamestate = {"p1": self.p1.get_dict(), "p2": self.p2.get_dict()}
+                    self.gamestate_queue.put(self.predicted_gamestate)
+                    time.sleep(0)
 
-                self.handle_gamestate()
+                    # Try and obtain predicted gamestate from Hardware AI
+                    try: 
+                        AI_prediction = self.prediction_queue.get_nowait()
+                        
+                        is_valid_prediction = self.prediction_filter(AI_prediction)
 
-                if ((self.predicted_gamestate["p1"] == "logout") and (self.predicted_gamestate["p2"] == "logout")):
-                    self.gamestate_queue.put("logout")
+                        if is_valid_prediction == True:
+                            self.prediction_value = AI_prediction
+                            self.handle_gamestate()
+                            print("P1 Received: " + str(self.p1_received))
+                            print("P2 Received: " + str(self.p2_received))
 
-                if self.game_mode != 2:
-                    self.send_data()
-                    updated_gamestate = self.receive_data()
-                elif self.game_mode == 2:
-                    updated_gamestate = self.predicted_gamestate
-                
-                # For checking for action validity
-                self.predicted_gamestate = updated_gamestate
+                        if (self.p1_received == True) and (self.p2_received == True):
+                            self.send_data()
+                            self.p1_received = False
+                            self.p2_received = False
+                        """
+                        self.prediction_value = AI_prediction
+                        self.handle_gamestate()
+                        self.send_data()
+                        """
+                        time.sleep(0)
 
-                self.gamestate_queue.put(updated_gamestate)
-                self.eval_to_p1_queue.put(updated_gamestate["p1"])
-                self.eval_to_p2_queue.put(updated_gamestate["p2"])
+                    except Empty:
+                        time.sleep(0)
+                        continue
 
-            except Empty:
-                continue
-        """
+                elif updated_gamestate == "no_update":
 
+                    # Try and obtain predicted gamestate from Hardware AI
+                    try: 
+                        AI_prediction = self.prediction_queue.get_nowait()
+                        
+                        valid_prediction = self.prediction_filter(AI_prediction)
 
-"""
-def main():
-    ip_addr = '192.168.95.226'
-    port_num = 8080
-    group_id = 'B03'
-    secret_key = 1212121212121212
-    default_game_state = {
-        "p1": {
-            "hp": 10,
-            "action": "grenade",
-            "bullets": 1,
-            "grenades": 1,
-            "shield_time": 0,
-            "shield_health": 3,
-            "num_deaths": 1,
-            "num_shield": 0
-        },
-        "p2": {
-            "hp": 100,
-            "action": "shield",
-            "bullets": 2,
-            "grenades": 2,
-            "shield_time": 1,
-            "shield_health": 0,
-            "num_deaths": 5,
-            "num_shield": 2
-        }
-    }
-    current_eval = eval_client(ip_addr, port_num, group_id, secret_key, default_game_state)
+                        if valid_prediction:
+                            self.prediction_value = AI_prediction
+                            self.handle_gamestate()
+                            print("P1 Received: " + str(self.p1_received))
+                            print("P2 Received: " + str(self.p2_received))
 
-    current_eval.start()
+                        if (self.p1_received == True) and (self.p2_received == True):
+                            self.send_data()
+                            self.p1_received = False
+                            self.p2_received = False
+                        """
+                        self.prediction_value = AI_prediction
+                        self.handle_gamestate()
+                        self.send_data()
+                        """
+                        time.sleep(0)
+
+                    except Empty:
+                        time.sleep(0)
+                        continue
+
+            elif self.game_mode == 2:
+                try: 
+                    self.prediction_value = self.prediction_queue.get_nowait()
+                    self.handle_gamestate()
+                    self.gamestate_queue.put(self.predicted_gamestate)
+                except Empty:
+                    continue
 
 
-if __name__ == '__main__':
-    main()
-"""
+

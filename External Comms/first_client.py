@@ -27,7 +27,6 @@ class relay_client(threading.Thread):
         threading.Thread.__init__(self)
 
     def send_data(self):
-        self.socket.setblocking(0)
         success = True
         # Sends Sample Data (For Now)
         self.accelerometer_data = {"player_id": 1, "message_type": 6, "acc_x": 0.5, "acc_y": 0.5, "acc_z": 0.5, "gyro_x": 0.5, "gyro_y": 0.5, "gyro_z": 0.5}
@@ -38,7 +37,6 @@ class relay_client(threading.Thread):
         try:
             self.socket.sendall(msg_length.encode("utf-8"))
             self.socket.sendall(msg.encode("utf-8"))
-            self.socket.setblocking(0)
         except OSError:
             return
         return success
@@ -72,6 +70,7 @@ class relay_client(threading.Thread):
                 print('no more data from relay_server')
                 self.stop()
             msg = json.loads(data.decode("utf8"))  # Decode raw bytes to UTF-8
+            self.socket.setblocking(1)
 
             self.gamestate_data = msg
             print(self.gamestate_data)
@@ -92,10 +91,10 @@ class relay_client(threading.Thread):
             # Send Data for 1s
 
             self.send_data()
+            time.sleep(0.02)
             
             # Receive Data
             self.receive_data()
-            print(self.gamestate_data)
 
 def main():
     ip_addr = '127.0.0.1'
