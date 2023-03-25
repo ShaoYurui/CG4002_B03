@@ -303,7 +303,9 @@ class eval_client(threading.Thread):
                     self.prediction_value = self.prediction_queue.get_nowait()
                     self.handle_gamestate()
                     self.gamestate_queue.put(self.predicted_gamestate)
+                    time.sleep(0)
                 except Empty:
+                    time.sleep(0)
                     continue
 
 
