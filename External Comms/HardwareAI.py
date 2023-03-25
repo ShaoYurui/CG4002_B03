@@ -1,4 +1,4 @@
-mport json
+import json
 import pandas as pd
 import numpy as np
 import os
@@ -12,7 +12,8 @@ from multiprocessing import Queue
 from multiprocessing import Pipe
 import random
 
-from timeit import default_timer as timer
+#from timeit import default_timer as timer
+from my_timer import my_timer
 import time
 import ultra96_cnn as u96
 # from ultra96_cnn import set_up_fpga
@@ -29,9 +30,10 @@ class HardwareAI(threading.Thread):
         self.prediction_queue = prediction_queue
         self.sender = sender
         self.receiver = receiver
-        self.p1_shot_detect_time = 0
-        self.p2_shot_detect_time = 0
+        self.fire_shot_flag = False
+        self.got_shot_flag = False
         self.cnn = cnn
+        self.my_timer = my_timer()
         threading.Thread.__init__(self)
 
     """
@@ -77,47 +79,36 @@ class HardwareAI(threading.Thread):
                             print(user_1_prediction)
 
             elif (msg["message_type"] == 4):
-                print("Read from accelerometer queue at : " + str(
+                print("Shots detected by Hardware AI at : " + str(
                     datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
-
-                if msg["player_id"] == 1:
-                    self.sender = 1
-                    self.receiver = 2
-                    self.p1_shot_detect_time = time.time()
-                    print("Player 1 Shot Sent at " + str(self.p1_shot_detect_time))
-                    self.prediction_queue.put({"sender": self.sender, "receiver": self.receiver, "command": 5})
-                elif msg["player_id"] == 2:
-                    self.sender = 2
-                    self.receiver = 1
-                    self.p2_shot_detect_time = time.time()
-                    print("Player 2 Shot Sent at " + str(self.p2_shot_detect_time))
-                    self.prediction_queue.put({"sender": self.sender, "receiver": self.receiver, "command": 5})
-
-            """
+                
+                self.fire_shot_flag = True
+            
             elif (msg["message_type"] == 5):
-                if msg["player_id"] == 1:
-                    self.sender = 2
-                    self.receiver = 1
-                    current_time = timer()
-                    print("Player 1 Shot Received at " + str(current_time))
-                    self.prediction_queue.put({"sender": self.sender, "receiver": self.receiver, "command": 5})
+                print("Vest detected by Hardware AI at : " + str(
+                    datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+                
+                self.got_shot_flag = True
+            
+            #if (self.sender == 2):
+             #   print(self.my_timer.get_timer())
 
-                    if current_time - self.p2_shot_detect_time < 1:
-                        self.prediction_queue.put({"sender": self.sender, "receiver": self.receiver, "command": 5})
-                    else:
-                        self.prediction_queue.put({"sender": self.sender, "receiver": self.receiver, "command": 6})
-
-                elif msg["player_id"] == 2:
-                    self.sender = 1
-                    self.receiver = 2
-                    current_time = timer()
-                    print("Player 2 Shot Received at " + str(current_time))
-                    if current_time - self.p1_shot_detect_time < 1:
-                        print("HOHO")
-                        self.prediction_queue.put({"sender": self.sender, "receiver": self.receiver, "command": 5})
-                    else:
-                        self.prediction_queue.put({"sender": self.sender, "receiver": self.receiver, "command": 6})
-            """
+            if self.fire_shot_flag == True and (self.my_timer.get_timer() == -1):
+                self.my_timer.start_timer()
+            
+            if (self.my_timer.get_timer() > 0.5) and (self.got_shot_flag == False) and (self.fire_shot_flag == True):
+                self.my_timer.stop_timer()
+                self.got_shot_flag = False
+                self.fire_shot_flag = False
+                self.prediction_queue.put({"sender": self.sender, "receiver": self.receiver, "command": 6})
+            
+            if (self.my_timer.get_timer() > 0) and (self.my_timer.get_timer() < 0.5) and (self.got_shot_flag == True) and (self.fire_shot_flag == True):
+                self.my_timer.stop_timer()
+                self.got_shot_flag = False
+                self.fire_shot_flag = False
+                self.prediction_queue.put({"sender": self.sender, "receiver": self.receiver, "command": 5})
+            
+            
             time.sleep(0)
 
 

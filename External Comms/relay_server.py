@@ -122,15 +122,25 @@ class relay_server(threading.Thread):
             #self.socket.setblocking(0)
             self.connection.setblocking(1)
 
-            if (msg["message_type"] == 4) or (msg["message_type"] == 5):
-                print("Right before putting into queue at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+            if (msg["message_type"] == 4):
+                print("MSG 4: Right before putting into queue at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
                 if msg["player_id"] == 1:
                     self.p1_accelerometer_queue.put(msg)
                 
                 elif msg["player_id"] == 2:
                     #self.p1_accelerometer_queue.put(msg)
                     self.p2_accelerometer_queue.put(msg)
-                print("Put into accelerometer queue at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+                print("MSG 4: Put into accelerometer queue at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+
+            elif (msg["message_type"] == 5):
+                print("MSG 5: Right before putting into queue at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+                if msg["player_id"] == 1:
+                    self.p2_accelerometer_queue.put(msg)
+                
+                elif msg["player_id"] == 2:
+                    #self.p1_accelerometer_queue.put(msg)
+                    self.p1_accelerometer_queue.put(msg)
+                print("MSG 5: Put into accelerometer queue at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
             
             elif msg["message_type"] == 6:
                 #print("IMU DATA at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
