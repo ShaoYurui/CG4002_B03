@@ -12,13 +12,13 @@
 #define GRAVITY_RAW_READING   16384
 #define CALIBRATE_SAMPLE_NUM  1000
 #define IMU_AG_SCALE_FACTOR   1000
-#define IMU_AG_SUM_THRESHOLD  500
-#define IMU_AG_PROD_THRESHOLD 1000
-#define IMU_NO_MOVE_THRESHOLD 50
+#define IMU_AG_SUM_THRESHOLD  1000
+#define IMU_AG_PROD_THRESHOLD 1200
+#define IMU_NO_MOVE_THRESHOLD 75
 /////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// HANDSHAKE PRE_COMPILE DEFINES ////////////////////////////////
 #define IMU_DATA               0x06
-#define PLAYER_ID              0x02 //0x01 or 0x02
+#define PLAYER_ID              0x01 //0x01 or 0x02
 #define PAD_BYTE               0x00
 #define REQUEST_H              0x48
 /////////////////////////////////////////////////////////////////////////////////////////////
@@ -39,7 +39,7 @@ long accelerometer_x_cal, accelerometer_y_cal, accelerometer_z_cal;
 long gyro_x_cal, gyro_y_cal, gyro_z_cal; 
 float accelerometer_x_scaled, accelerometer_y_scaled, accelerometer_z_scaled; 
 float gyro_x_scaled, gyro_y_scaled, gyro_z_scaled;
-int no_movement_count = IMU_NO_MOVE_THRESHOLD;
+int16_t movement_count = IMU_NO_MOVE_THRESHOLD;
 /////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////// IMU PREPROCESS VARIABLES /////////////////////////////////////
 int16_t accelerometer_x_processed, accelerometer_y_processed, accelerometer_z_processed; 
@@ -86,7 +86,7 @@ void loop()
     }
 
     imu_time = millis();
-    
+
     package[19] = (uint8_t) getChecksum();
     package[18] = ((uint8_t *) &gyro_z_processed) [0];
     package[17] = ((uint8_t *) &gyro_z_processed) [1];
@@ -214,28 +214,46 @@ bool is_movement_detected()
                     sqrt(gyro_y_scaled * gyro_y_scaled) * 
                     sqrt(gyro_z_scaled * gyro_z_scaled);     
 
-  if (( acc_sqrt * gyro_sqrt > IMU_AG_SUM_THRESHOLD) && (acc_prod > IMU_AG_PROD_THRESHOLD || gyro_prod > IMU_AG_PROD_THRESHOLD))
+  if (( acc_sqrt * gyro_sqrt > IMU_AG_SUM_THRESHOLD) || (acc_prod > IMU_AG_PROD_THRESHOLD || gyro_prod > IMU_AG_PROD_THRESHOLD))
   {
-    no_movement_count = 0;
+    if(movement_count == IMU_NO_MOVE_THRESHOLD)
+    {
+      movement_count = 0;
+    }
+    else
+    {
+      movement_count = movement_count + 1;
+      if(movement_count >= IMU_NO_MOVE_THRESHOLD)
+      {
+        movement_count = IMU_NO_MOVE_THRESHOLD - 10;
+      }
+    }
     return true;
   }
 
-  if (( acc_sqrt * gyro_sqrt > IMU_AG_SUM_THRESHOLD/4) && (acc_prod > IMU_AG_PROD_THRESHOLD/4 || gyro_prod > IMU_AG_PROD_THRESHOLD/4))
+  else
   {
-    no_movement_count++;
+    if (( acc_sqrt * gyro_sqrt > 1.0f *IMU_AG_SUM_THRESHOLD/10) || 
+      (acc_prod > 1.0f *IMU_AG_PROD_THRESHOLD/10 || gyro_prod > 1.0f * IMU_AG_PROD_THRESHOLD/10) ||
+      (movement_count <= IMU_NO_MOVE_THRESHOLD))
+    {
+      movement_count = movement_count + 1;
+    }
+    else
+    {
+      movement_count = movement_count + 20;
+    }
+  } 
+  
+  if(movement_count >= IMU_NO_MOVE_THRESHOLD)
+  {
+    movement_count = IMU_NO_MOVE_THRESHOLD;
+    return false;
   }
   else
   {
-    no_movement_count = no_movement_count + 2;
+    return true;
   }
-  
-  if(no_movement_count >= IMU_NO_MOVE_THRESHOLD)
-  {
-    no_movement_count = IMU_NO_MOVE_THRESHOLD;
-    return false;
-  }
-
-  return true;
 }
 
 void print_IMU_raw_data()
