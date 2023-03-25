@@ -86,7 +86,7 @@ void loop()
     }
 
     imu_time = millis();
-    
+
     package[19] = (uint8_t) getChecksum();
     package[18] = ((uint8_t *) &gyro_z_processed) [0];
     package[17] = ((uint8_t *) &gyro_z_processed) [1];
@@ -231,16 +231,19 @@ bool is_movement_detected()
     return true;
   }
 
-  else if (( acc_sqrt * gyro_sqrt > 1.0f *IMU_AG_SUM_THRESHOLD/10) || 
-      (acc_prod > 1.0f *IMU_AG_PROD_THRESHOLD/10 || gyro_prod > 1.0f * IMU_AG_PROD_THRESHOLD/10) ||
-      (movement_count <= IMU_NO_MOVE_THRESHOLD))
-  {
-    movement_count = movement_count + 1;
-  }
   else
   {
-    movement_count = movement_count + 20;
-  }
+    if (( acc_sqrt * gyro_sqrt > 1.0f *IMU_AG_SUM_THRESHOLD/10) || 
+      (acc_prod > 1.0f *IMU_AG_PROD_THRESHOLD/10 || gyro_prod > 1.0f * IMU_AG_PROD_THRESHOLD/10) ||
+      (movement_count <= IMU_NO_MOVE_THRESHOLD))
+    {
+      movement_count = movement_count + 1;
+    }
+    else
+    {
+      movement_count = movement_count + 20;
+    }
+  } 
   
   if(movement_count >= IMU_NO_MOVE_THRESHOLD)
   {
