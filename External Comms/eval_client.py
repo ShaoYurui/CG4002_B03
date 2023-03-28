@@ -195,9 +195,6 @@ class eval_client(threading.Thread):
         receiver = self.prediction_value["receiver"]
         command = self.prediction_value["command"]
 
-        self.p1.update_shield_timings()
-        self.p2.update_shield_timings()
-
         self.play_game(sender, receiver, command)
         print("Gamestate calculated!")
 
@@ -222,7 +219,19 @@ class eval_client(threading.Thread):
                 return True
             elif self.p2_received == True:
                 return False
-            
+    
+    def send_shield_timeout(self):
+        if self.p1.shield_timeout == True:
+            temp_gamestate = {"p1": self.p1.get_dict(), "p2": self.p2.get_dict()}
+            temp_gamestate["p1"]["action"] = "shield_timeout"
+            self.gamestate_queue.put(temp_gamestate)
+            self.p1.shield_timeout = False
+
+        if self.p2.shield_timeout == True:
+            temp_gamestate = {"p1": self.p1.get_dict(), "p2": self.p2.get_dict()}
+            temp_gamestate["p2"]["action"] = "shield_timeout"
+            self.gamestate_queue.put(temp_gamestate)
+            self.p2.shield_timeout = False
 
 
     def run(self):
@@ -231,6 +240,9 @@ class eval_client(threading.Thread):
         print("eval_client is now connected to eval_server!")
 
         while True:
+            self.p1.update_shield_timings()
+            self.p2.update_shield_timings()
+            self.send_shield_timeout()
             if self.game_mode != 2:
                 updated_gamestate = self.receive_data()
                 if updated_gamestate != "no_update":

@@ -81,36 +81,36 @@ class HardwareAI(threading.Thread):
             elif (msg["message_type"] == 4):
                 print("Shots detected by Hardware AI at : " + str(
                     datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
-                
+
                 self.fire_shot_flag = True
-            
+
             elif (msg["message_type"] == 5):
                 print("Vest detected by Hardware AI at : " + str(
                     datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
-                
+
                 self.got_shot_flag = True
-            
+
             #if (self.sender == 2):
              #   print(self.my_timer.get_timer())
 
             if self.fire_shot_flag == True and (self.my_timer.get_timer() == -1):
                 self.my_timer.start_timer()
-            
+
             if (self.my_timer.get_timer() > 0.5) and (self.got_shot_flag == False) and (self.fire_shot_flag == True):
                 self.my_timer.stop_timer()
                 self.got_shot_flag = False
                 self.fire_shot_flag = False
                 self.prediction_queue.put({"sender": self.sender, "receiver": self.receiver, "command": 6})
-            
+
             if (self.my_timer.get_timer() > 0) and (self.my_timer.get_timer() < 0.5) and (self.got_shot_flag == True) and (self.fire_shot_flag == True):
                 self.my_timer.stop_timer()
                 self.got_shot_flag = False
                 self.fire_shot_flag = False
                 self.prediction_queue.put({"sender": self.sender, "receiver": self.receiver, "command": 5})
-            
-            
-            time.sleep(0)
 
+
+            time.sleep(0)
+        
 
 
             

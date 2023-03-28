@@ -37,7 +37,9 @@ class player_new():
         self.num_deaths     = 0
 
         self.shield_activated = False
-        self.shield_activate_time = 0
+        self.last_time = time.time()
+        self.current_time = time.time()
+        self.shield_timeout = False
         
         self.playerstate = self.get_dict()
 
@@ -66,11 +68,6 @@ class player_new():
         self.num_deaths     = self.num_deaths + 1
 
         self.shield_activated = False
-        self.shield_activate_time = 0
-
-        self.shield_respawn_cooldown = False
-        self.shield_respawn_starttime = 0
-        self.shield_respawn_time = 0
         
         return
     
@@ -129,7 +126,6 @@ class player_new():
             if self.shield_health == 10:
                 self.shield_health = 30
                 self.shield_activated = False
-                self.shield_activate_time = 0
                 self.num_shield = self.num_shield - 1
             
             # Case 1.2 : This hit does not destroy the shield
@@ -157,14 +153,12 @@ class player_new():
             if self.shield_health == 30:
                 self.shield_health = 30
                 self.shield_activated = False
-                self.shield_activate_time = 0
                 self.num_shield = self.num_shield - 1
 
             # Case 1.2 : This hit destroys shield and harms the player
             elif self.shield_health < 30:
                 self.shield_health = 30
                 self.shield_activated = False
-                self.shield_activate_time = 0
                 self.num_shield = self.num_shield - 1
 
                 hp_damage = 30 - self.shield_health
@@ -199,52 +193,32 @@ class player_new():
         self.playerstate = self.get_dict()
         return
 
-
     def update_shield_timings(self):
         
         if ((self.shield_activated == False) and (self.shield_time == 0)):
             return
         
-        current_time = timer()
-        self.shield_time = self.shield_max_time - (current_time - self.shield_activate_time) - self.clock_offset
+        self.last_time = self.current_time
+        self.current_time = time.time()
+        time_difference = self.current_time - self.last_time
+        self.shield_time = self.shield_time - time_difference
 
         if self.shield_time <= 0:
             self.shield_activated = False
             self.shield_health = 0
-            self.shield_activate_time = 0
-            self.shield_respawn_cooldown = True
             self.shield_time = 0
+            self.shield_timeout = True
             self.playerstate = self.get_dict()
         
         self.playerstate = self.get_dict()
         return
     
-    """
-    def update_respawn_timings(self):
-        
-        if self.shield_respawn_cooldown == False:
-            return
-        
-        # Only Executed if shield is respawning
-        current_time = timer()
-        self.shield_respawn_time = self.max_shield_respawn - (current_time - self.shield_respawn_starttime)
-
-        if self.shield_respawn_time <= 0:
-            self.shield_respawn_cooldown = False
-
-        self.playerstate = self.get_dict()
-        return
-    """
-    
     def update_from_eval(self, new_playerstate):
-        # Obtain Clock offset to ensure error is not propagated
-        self.clock_offset = self.clock_offset + (self.playerstate["shield_time"] - new_playerstate["shield_time"])
         # self.shield_activate_time = self.shield_activate_time - (self.playerstate["shield_time"] - new_playerstate["shield_time"])
 
         # Only activate shield once it's cross-confirmed that shield must be activated
         if (new_playerstate["action"] == "shield"):
             self.shield_activated = True
-            self.shield_activate_time = timer()
         
         # Fixing Player State
         self.playerstate = new_playerstate
