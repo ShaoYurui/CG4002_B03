@@ -101,12 +101,14 @@ class HardwareAI(threading.Thread):
                 self.got_shot_flag = False
                 self.fire_shot_flag = False
                 self.prediction_queue.put({"sender": self.sender, "receiver": self.receiver, "command": 6})
+                print("Shot fired by player {player} is not successful.".format(player=self.sender))
 
             if (self.my_timer.get_timer() > 0) and (self.my_timer.get_timer() < 0.5) and (self.got_shot_flag == True) and (self.fire_shot_flag == True):
                 self.my_timer.stop_timer()
                 self.got_shot_flag = False
                 self.fire_shot_flag = False
                 self.prediction_queue.put({"sender": self.sender, "receiver": self.receiver, "command": 5})
+                print("Shot fired by player {player} is successful.".format(player=self.sender))
 
 
             time.sleep(0)
