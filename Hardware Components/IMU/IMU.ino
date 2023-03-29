@@ -225,7 +225,7 @@ bool is_movement_detected()
       movement_count = movement_count + 1;
       if(movement_count >= IMU_NO_MOVE_THRESHOLD)
       {
-        movement_count = IMU_NO_MOVE_THRESHOLD - 10;
+        movement_count = IMU_NO_MOVE_THRESHOLD - 30;
       }
     }
     return true;
