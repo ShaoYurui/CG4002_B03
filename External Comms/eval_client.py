@@ -243,6 +243,7 @@ class eval_client(threading.Thread):
             self.p1.update_shield_timings()
             self.p2.update_shield_timings()
             self.send_shield_timeout()
+            time.sleep(0)
             if self.game_mode != 2:
                 updated_gamestate = self.receive_data()
                 if updated_gamestate != "no_update":
@@ -270,6 +271,7 @@ class eval_client(threading.Thread):
                             self.send_data()
                             self.p1_received = False
                             self.p2_received = False
+                            #time.sleep(0)
                         """
                         self.prediction_value = AI_prediction
                         self.handle_gamestate()
