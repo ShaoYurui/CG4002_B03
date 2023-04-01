@@ -82,7 +82,7 @@ void loop()
     IrReceiver.resume(); // Important, enables to receive the next IR signal
   } 
 
-  sheild_time_out();
+  //sheild_time_out();
 }  
 /////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////// LED STRIPS FUNTIONS DEFINES/////////////////////////////
@@ -170,7 +170,7 @@ void shield_bar_display(int hp)
 void health_bar_display()
 {
   if (((health_pt >= prev_health_pt) && (shield_pt >= prev_shield_pt)) &&
-      !((health_pt == 10 && prev_health_pt == 1) || (shield_pt == 3 && prev_shield_pt == 0)))
+      !((health_pt == 10 && prev_health_pt == 1) || (shield_pt != 0 && prev_shield_pt == 0)))
   {
     return ;
   }
