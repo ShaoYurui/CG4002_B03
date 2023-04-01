@@ -12,6 +12,7 @@
 #define PAD_BYTE               0x00
 #define REQUEST_H              0x48
 
+int pre_ammo = 6;
 int ammo_count = 6;
 
 int message_id = 0;
@@ -42,6 +43,11 @@ void loop()
     else if (is_valid_data(indata))
     { //receive bullet count
       ammo_count = get_ammo_count(indata); //see incoming data
+      if (ammo_count == 6 and pre_ammo == 0)
+      {
+        sound_reload();
+      }
+      pre_ammo = ammo_count;
     }
   }
 }  
