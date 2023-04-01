@@ -122,9 +122,10 @@ class player_new():
         
         # Case 1 : Shield is activated
         if self.shield_activated == True:
+            print("Shield is active when player shoots")
             # Case 1.1 : This hit destroys the shield
             if self.shield_health == 10:
-                self.shield_health = 30
+                self.shield_health = 0
                 self.shield_activated = False
                 self.num_shield = self.num_shield - 1
             
@@ -134,6 +135,7 @@ class player_new():
         
         # Case 2 : Shield is not activated
         elif self.shield_activated == False:
+            print("Shield is inactive when player shoots")
             # Case 2.1 : This hit kills the player
             if self.hp <= 10:
                 self.hp = 0
@@ -151,13 +153,13 @@ class player_new():
         if self.shield_activated == True:
             # Case 1.1 : This hit destroys the shield but does not harm the player
             if self.shield_health == 30:
-                self.shield_health = 30
+                self.shield_health = 0
                 self.shield_activated = False
                 self.num_shield = self.num_shield - 1
 
             # Case 1.2 : This hit destroys shield and harms the player
             elif self.shield_health < 30:
-                self.shield_health = 30
+                self.shield_health = 0
                 self.shield_activated = False
                 self.num_shield = self.num_shield - 1
 
@@ -195,12 +197,13 @@ class player_new():
 
     def update_shield_timings(self):
         
-        if ((self.shield_activated == False) and (self.shield_time == 0)):
-            return
-        
         self.last_time = self.current_time
         self.current_time = time.time()
         time_difference = self.current_time - self.last_time
+
+        if ((self.shield_activated == False) and (self.shield_time == 0)):
+            return
+        
         self.shield_time = self.shield_time - time_difference
 
         if self.shield_time <= 0:

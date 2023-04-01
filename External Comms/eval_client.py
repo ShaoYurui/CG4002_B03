@@ -19,8 +19,6 @@ from queue import Empty
 from datetime import datetime
 from player_new import player_new
 
-
-
 class eval_client(threading.Thread):
 
     def __init__(self
@@ -155,9 +153,13 @@ class eval_client(threading.Thread):
             if ((sender == 1) and (receiver == 2)):
                 self.p1.perform_shield()
                 self.p2.no_apply()
+                if self.game_mode == 2:
+                    self.p1.shield_activated = True
             elif ((sender == 2) and (receiver == 1)):
                 self.p1.no_apply()
                 self.p2.perform_shield()
+                if self.game_mode == 2:
+                    self.p2.shield_activated = True
 
         # Reload
         elif command == 2:
@@ -179,7 +181,7 @@ class eval_client(threading.Thread):
                 self.p1.no_apply()
 
         # Logout
-        if command == 0:
+        if command == 4:
             if ((sender == 1) and (receiver == 2)):
                 self.p1.perform_logout()
                 self.p2.no_apply()
@@ -236,8 +238,9 @@ class eval_client(threading.Thread):
 
     def run(self):
         # Connect to Ultra96
-        self.socket.connect(self.server_address)
-        print("eval_client is now connected to eval_server!")
+        if self.game_mode != 2:
+            self.socket.connect(self.server_address)
+            print("eval_client is now connected to eval_server!")
 
         while True:
             self.p1.update_shield_timings()
@@ -250,7 +253,9 @@ class eval_client(threading.Thread):
 
                     # First, update the individual player states, then send evaluated gamestate to relay_server
                     self.p1.update_from_eval(updated_gamestate["p1"])
+                    self.p1_received = False
                     self.p2.update_from_eval(updated_gamestate["p2"])
+                    self.p2_received = False
                     self.predicted_gamestate = {"p1": self.p1.get_dict(), "p2": self.p2.get_dict()}
                     self.gamestate_queue.put(self.predicted_gamestate)
                     time.sleep(0)
@@ -313,12 +318,14 @@ class eval_client(threading.Thread):
                         continue
 
             elif self.game_mode == 2:
+                time.sleep(0)
                 try: 
                     self.prediction_value = self.prediction_queue.get_nowait()
                     self.handle_gamestate()
-                    self.gamestate_queue.put(self.predicted_gamestate)
                     time.sleep(0)
+                    self.gamestate_queue.put(self.predicted_gamestate)
                 except Empty:
+                    time.sleep(0)
                     time.sleep(0)
                     continue
 

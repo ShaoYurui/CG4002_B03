@@ -65,6 +65,9 @@ class HardwareAI(threading.Thread):
                 else:
                     if user == 0 and user_0_prediction == -1:
                         user_0_prediction = u96.run_inference(self.cnn, msg_array, user)
+                        if user_0_prediction == 0:
+                            #print("User 1 Walking Detected")
+                            user_0_prediction = -1
                         if user_0_prediction != -1:
                             self.sender = 1
                             self.receiver = 2
@@ -72,6 +75,9 @@ class HardwareAI(threading.Thread):
                             print(user_0_prediction)
                     if user == 1 and user_1_prediction == -1:
                         user_1_prediction = u96.run_inference(self.cnn, msg_array, user)
+                        if user_1_prediction == 0:
+                            #print("User 2 Walking Detected")
+                            user_1_prediction = -1
                         if user_1_prediction != -1:
                             self.sender = 2
                             self.receiver = 1
@@ -79,14 +85,14 @@ class HardwareAI(threading.Thread):
                             print(user_1_prediction)
 
             elif (msg["message_type"] == 4):
-                print("Shots detected by Hardware AI at : " + str(
-                    datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+                #print("Shots detected by Hardware AI at : " + str(
+                #    datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
 
                 self.fire_shot_flag = True
 
             elif (msg["message_type"] == 5):
-                print("Vest detected by Hardware AI at : " + str(
-                    datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+                #print("Vest detected by Hardware AI at : " + str(
+                #    datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
 
                 self.got_shot_flag = True
 
