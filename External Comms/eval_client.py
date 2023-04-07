@@ -4,7 +4,6 @@ import os
 import sys
 import random as random
 import time
-import tkinter as tk
 from _socket import SHUT_RDWR
 import socket
 import threading
@@ -19,6 +18,7 @@ from queue import Empty
 from datetime import datetime
 from player_new import player_new
 
+#class eval_client(threading.Thread):
 class eval_client(threading.Thread):
 
     def __init__(self
@@ -34,7 +34,6 @@ class eval_client(threading.Thread):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_address = (ip_addr, port_num)
         self.secret_key = secret_key
-        # Game Mode: 0 - Single_Person. 1 - Two_Person. 2 - No_Eval_Server
         self.game_mode = game_mode
         self.predicted_gamestate = default_game_state
         self.gamestate_queue = gamestate_queue
@@ -44,7 +43,7 @@ class eval_client(threading.Thread):
         self.p1 = player_new()
         self.p2 = player_new()
 
-        threading.Thread.__init__(self)
+        #threading.Thread.__init__(self)
     
 
     def _encrypt_message(self, plaintext):
@@ -100,7 +99,7 @@ class eval_client(threading.Thread):
             if len(data) == 0:
                 print('no more data from the server')
                 self.stop()
-            msg = data.decode("utf8")  # Decode raw bytes to UTF-8
+            msg = data.decode("utf8")
 
             correct_gamestate = json.loads(msg)
             self.socket.setblocking(0)
@@ -111,7 +110,6 @@ class eval_client(threading.Thread):
             sys.exit()
 
         except BlockingIOError:
-            #print("no_update")
             return "no_update"
 
     
@@ -257,7 +255,7 @@ class eval_client(threading.Thread):
                     self.p2_received = False
                     self.predicted_gamestate = {"p1": self.p1.get_dict(), "p2": self.p2.get_dict()}
                     self.gamestate_queue.put(self.predicted_gamestate)
-                    time.sleep(0)
+                    #time.sleep(0)
 
                     # Try and obtain predicted gamestate from Hardware AI
                     try:
@@ -275,16 +273,15 @@ class eval_client(threading.Thread):
                             self.send_data()
                             self.p1_received = False
                             self.p2_received = False
-                            #time.sleep(0)
                         """
                         self.prediction_value = AI_prediction
                         self.handle_gamestate()
                         self.send_data()
                         """
-                        time.sleep(0)
+                        #time.sleep(0)
 
                     except Empty:
-                        time.sleep(0)
+                        #time.sleep(0)
                         continue
 
                 elif updated_gamestate == "no_update":
@@ -310,23 +307,23 @@ class eval_client(threading.Thread):
                         self.handle_gamestate()
                         self.send_data()
                         """
-                        time.sleep(0)
+                        #time.sleep(0)
 
                     except Empty:
-                        time.sleep(0)
+                        #time.sleep(0)
                         continue
 
             elif self.game_mode == 2:
-                
-                time.sleep(0)
+    
+                #time.sleep(0)
                 try:
                     self.prediction_value = self.prediction_queue.get_nowait()
                     self.handle_gamestate()
-                    time.sleep(0)
+                    #time.sleep(0)
                     self.gamestate_queue.put(self.predicted_gamestate)
                 except Empty:
-                    time.sleep(0)
-                    time.sleep(0)
+                    #time.sleep(0)
+                    #time.sleep(0)
                     continue
 
 

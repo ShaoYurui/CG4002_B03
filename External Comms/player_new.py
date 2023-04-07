@@ -3,7 +3,6 @@ import os
 import sys
 import random as random
 import time
-import tkinter as tk
 from _socket import SHUT_RDWR
 import socket
 import threading

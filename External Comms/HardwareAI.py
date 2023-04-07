@@ -5,24 +5,21 @@ import os
 import sys
 import random as random
 import time
-import tkinter as tk
 import threading
 import traceback
 from multiprocessing import Queue
 from multiprocessing import Pipe
 import random
 
-#from timeit import default_timer as timer
 from my_timer import my_timer
 import time
-import ultra96_cnn as u96
-# from ultra96_cnn import set_up_fpga
-# from ultra96_cnn import run_inference
+#import ultra96_cnn as u96
 
 from datetime import datetime
 from queue import Empty
 
-class HardwareAI(threading.Thread):
+#class HardwareAI(threading.Thread):
+class HardwareAI():
 
     def __init__(self, accelerometer_queue, prediction_queue, cnn, sender, receiver):
 
@@ -34,26 +31,22 @@ class HardwareAI(threading.Thread):
         self.got_shot_flag = False
         self.cnn = cnn
         self.my_timer = my_timer()
-        threading.Thread.__init__(self)
+        #threading.Thread.__init__(self)
 
-    """
+    
     def run(self):
         while True:
             prediction = input("Enter dummy input for Player {player_number}: ".format(player_number=self.sender))
             self.prediction_queue.put({"sender": self.sender, "receiver": self.receiver, "command": int(prediction)})
-            time.sleep(0)
+            #time.sleep(0)
     """
 
     def run(self):
         user_0_prediction = -1
         user_1_prediction = -1
-        #prediction = -1
         while True:
             msg = self.accelerometer_queue.get()
             user = msg["player_id"] - 1
-            #print(user)
-            #print(msg["player_id"])
-            #print(msg)
             msg_array = np.array(
                 [msg["acc_x"], msg["acc_y"], msg["acc_z"], msg["gyro_x"], msg["gyro_y"], msg["gyro_z"]])
             if (msg["message_type"] == 6):
@@ -117,7 +110,8 @@ class HardwareAI(threading.Thread):
                 print("Shot fired by player {player} is successful.".format(player=self.sender))
 
 
-            time.sleep(0)
+            #time.sleep(0)
+    """
         
 
 
