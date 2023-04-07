@@ -317,6 +317,7 @@ class eval_client(threading.Thread):
                         continue
 
             elif self.game_mode == 2:
+                
                 time.sleep(0)
                 try:
                     self.prediction_value = self.prediction_queue.get_nowait()
