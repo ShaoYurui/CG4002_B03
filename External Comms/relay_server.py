@@ -50,7 +50,6 @@ class relay_server():
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.socket.bind((ip_addr, port_num))
-        self.connection_list = list()
         self.connection = None
         self.address = ""
         self.gamestate_data = default_gamestate
@@ -65,7 +64,7 @@ class relay_server():
         success = True
         try:
             self.gamestate_data = self.eval_gamestate_queue.get_nowait()
-            print("Eval gamestate data obtained")
+            #print("Eval gamestate data obtained")
             msg = json.dumps(self.gamestate_data)
             msg_length = str(len(msg))+'_'
             if self.gamestate_data == "logout":
@@ -73,90 +72,85 @@ class relay_server():
         except Empty:
             return
         try:
-            for conn in self.connection_list:
-                self.connection = conn
-                # Print GameState Data for debugging
-                print(msg)
-                self.connection.sendall(msg_length.encode("utf-8"))
-                self.connection.sendall(msg.encode("utf-8"))
-                print("Sent to relay_client at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+            # Print GameState Data for debugging
+            print(msg)
+            self.connection.sendall(msg_length.encode("utf-8"))
+            self.connection.sendall(msg.encode("utf-8"))
+            #print("Sent to relay_client at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
         except OSError:
-            print("connection between relay_server and relay_client lost")
+            #print("connection between relay_server and relay_client lost")
             success = False
 
         return success
 
     def receive_data(self):
-        for conn in self.connection_list:
-            self.connection = conn
-            data = b''
-            self.connection.setblocking(0)
-            try:
-                while not data.endswith(b'_'):
-                    _d = self.connection.recv(1)
-                    if not _d:
-                        data = b''
-                        break
-                    data += _d
-                if len(data) == 0:
-                    print('no more data from relay_server')
-                    continue
+        data = b''
+        self.connection.setblocking(0)
+        try:
+            while not data.endswith(b'_'):
 
-                data = data.decode("utf-8")
-                length = int(data[:-1])
-                self.connection.setblocking(1)
-                data = b''
-                while len(data) < length:
-                    _d = self.connection.recv(length - len(data))
-                    if not _d:
-                        data = b''
-                        break
-                    data += _d
-                if len(data) == 0:
-                    print('no more data from relay_server')
-                    self.stop()
-            except BlockingIOError:
+                _d = self.connection.recv(1)
+                if not _d:
+                    data = b''
+                    break
+                data += _d
+            if len(data) == 0:
+                print('no more data from relay_server')
                 return
-            
-            msg = json.loads(data.decode("utf8"))
+
+            data = data.decode("utf-8")
+            length = int(data[:-1])
             self.connection.setblocking(1)
+            data = b''
+            while len(data) < length:
+                _d = self.connection.recv(length - len(data))
+                if not _d:
+                    data = b''
+                    break
+                data += _d
+        except BlockingIOError:
+            return
 
-            if (msg["message_type"] == 4):
-                #print("MSG 4: Right before putting into queue at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
-                if msg["player_id"] == 1:
-                    self.p1_accelerometer_queue.put(msg)
-                
-                elif msg["player_id"] == 2:
-                    self.p2_accelerometer_queue.put(msg)
-                #print("MSG 4: Put into accelerometer queue at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+        msg = json.loads(data.decode("utf8"))
+        self.connection.setblocking(1)
 
-            elif (msg["message_type"] == 5):
-                #print("MSG 5: Right before putting into queue at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
-                if msg["player_id"] == 1:
-                    self.p2_accelerometer_queue.put(msg)
-                
-                elif msg["player_id"] == 2:
-                    self.p1_accelerometer_queue.put(msg)
-                #print("MSG 5: Put into accelerometer queue at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
-            
-            elif msg["message_type"] == 6:
-                #print("IMU DATA at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
-                if msg["player_id"] == 1:
-                    self.p1_accelerometer_queue.put(msg)
-                elif msg["player_id"] == 2:
-                    self.p2_accelerometer_queue.put(msg)
+        if (msg["message_type"] == 4):
+            #print("MSG 4: Right before putting into queue at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+            if msg["player_id"] == 1:
+                self.p1_accelerometer_queue.put(msg)
+
+            elif msg["player_id"] == 2:
+                self.p2_accelerometer_queue.put(msg)
+            #print("MSG 4: Put into accelerometer queue at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+
+        elif (msg["message_type"] == 5):
+            #print("MSG 5: Right before putting into queue at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+            if msg["player_id"] == 1:
+                self.p2_accelerometer_queue.put(msg)
+
+            elif msg["player_id"] == 2:
+                self.p1_accelerometer_queue.put(msg)
+            #print("MSG 5: Put into accelerometer queue at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+        
+        elif msg["message_type"] == 6:
+            #print("IMU DATA at : " + str(datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]))
+            if msg["player_id"] == 1:
+                self.p1_accelerometer_queue.put(msg)
+            elif msg["player_id"] == 2:
+                self.p2_accelerometer_queue.put(msg)
 
         return
 
     def run(self):
 
-        for i in range(2):
-            self.socket.listen(1)
-            connection, address = self.socket.accept()
-            self.connection_list.append(connection)
-            print("relay_server is now connected to " + str(address))
+        self.socket.listen(1)
+        connection, address = self.socket.accept()
+        self.connection = connection
+        print("relay_server is now connected to " + str(address))
 
         while True:
+            #print("RELAY SERVER {conn}!!".format(conn = self.connection))
+            time.sleep(0.001)
             self.send_data()
             self.receive_data()
             #time.sleep(0)
