@@ -4,7 +4,6 @@ import os
 import sys
 import random as random
 import time
-import tkinter as tk
 from _socket import SHUT_RDWR
 import socket
 import threading
@@ -19,7 +18,8 @@ from queue import Empty
 from datetime import datetime
 from player_new import player_new
 
-class eval_client(threading.Thread):
+#class eval_client(threading.Thread):
+class eval_client():
 
     def __init__(self
                  , ip_addr
@@ -28,23 +28,26 @@ class eval_client(threading.Thread):
                  , secret_key
                  , game_mode
                  , default_game_state
-                 , gamestate_queue
-                 , prediction_queue):
+                 , p1_gamestate_queue
+                 , p2_gamestate_queue
+                 , p1_prediction_queue
+                 , p2_prediction_queue):
 
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_address = (ip_addr, port_num)
         self.secret_key = secret_key
-        # Game Mode: 0 - Single_Person. 1 - Two_Person. 2 - No_Eval_Server
         self.game_mode = game_mode
         self.predicted_gamestate = default_game_state
-        self.gamestate_queue = gamestate_queue
-        self.prediction_queue = prediction_queue
+        self.p1_gamestate_queue = p1_gamestate_queue
+        self.p2_gamestate_queue = p2_gamestate_queue
+        self.p1_prediction_queue = p1_prediction_queue
+        self.p2_prediction_queue = p2_prediction_queue
         self.p1_received = False
         self.p2_received = False
         self.p1 = player_new()
         self.p2 = player_new()
 
-        threading.Thread.__init__(self)
+        #threading.Thread.__init__(self)
     
 
     def _encrypt_message(self, plaintext):
@@ -100,7 +103,7 @@ class eval_client(threading.Thread):
             if len(data) == 0:
                 print('no more data from the server')
                 self.stop()
-            msg = data.decode("utf8")  # Decode raw bytes to UTF-8
+            msg = data.decode("utf8")
 
             correct_gamestate = json.loads(msg)
             self.socket.setblocking(0)
@@ -111,7 +114,6 @@ class eval_client(threading.Thread):
             sys.exit()
 
         except BlockingIOError:
-            #print("no_update")
             return "no_update"
 
     
@@ -226,26 +228,31 @@ class eval_client(threading.Thread):
         if self.p1.shield_timeout == True:
             temp_gamestate = {"p1": self.p1.get_dict(), "p2": self.p2.get_dict()}
             temp_gamestate["p1"]["action"] = "shield_timeout"
-            self.gamestate_queue.put(temp_gamestate)
+            self.p1_gamestate_queue.put(temp_gamestate)
+            self.p2_gamestate_queue.put(temp_gamestate)
             self.p1.shield_timeout = False
 
         if self.p2.shield_timeout == True:
             temp_gamestate = {"p1": self.p1.get_dict(), "p2": self.p2.get_dict()}
             temp_gamestate["p2"]["action"] = "shield_timeout"
-            self.gamestate_queue.put(temp_gamestate)
+            self.p1_gamestate_queue.put(temp_gamestate)
+            self.p2_gamestate_queue.put(temp_gamestate)
             self.p2.shield_timeout = False
 
     def run(self):
         # Connect to Ultra96
         if self.game_mode != 2:
+            #print(self.server_address)
             self.socket.connect(self.server_address)
             print("eval_client is now connected to eval_server!")
 
         while True:
+            time.sleep(0.001)
+            #print("EVAL CLIENT")
             self.p1.update_shield_timings()
             self.p2.update_shield_timings()
             self.send_shield_timeout()
-            time.sleep(0)
+            #time.sleep(0)
             if self.game_mode != 2:
                 updated_gamestate = self.receive_data()
                 if updated_gamestate != "no_update":
@@ -256,17 +263,18 @@ class eval_client(threading.Thread):
                     self.p2.update_from_eval(updated_gamestate["p2"])
                     self.p2_received = False
                     self.predicted_gamestate = {"p1": self.p1.get_dict(), "p2": self.p2.get_dict()}
-                    self.gamestate_queue.put(self.predicted_gamestate)
-                    time.sleep(0)
+                    self.p1_gamestate_queue.put(self.predicted_gamestate)
+                    self.p2_gamestate_queue.put(self.predicted_gamestate)
+                    #time.sleep(0)
 
-                    # Try and obtain predicted gamestate from Hardware AI
+                    # Try and obtain predicted gamestate from Hardware AI 1
                     try:
-                        AI_prediction = self.prediction_queue.get_nowait()
+                        p1_prediction = self.p1_prediction_queue.get_nowait()
 
-                        is_valid_prediction = self.prediction_filter(AI_prediction)
+                        is_valid_prediction = self.prediction_filter(p1_prediction)
 
                         if is_valid_prediction == True:
-                            self.prediction_value = AI_prediction
+                            self.prediction_value = p1_prediction
                             self.handle_gamestate()
                             print("P1 Received: " + str(self.p1_received))
                             print("P2 Received: " + str(self.p2_received))
@@ -275,28 +283,48 @@ class eval_client(threading.Thread):
                             self.send_data()
                             self.p1_received = False
                             self.p2_received = False
-                            #time.sleep(0)
                         """
                         self.prediction_value = AI_prediction
                         self.handle_gamestate()
                         self.send_data()
                         """
-                        time.sleep(0)
+                        #time.sleep(0)
 
                     except Empty:
-                        time.sleep(0)
-                        continue
+                        #time.sleep(0)
+                        pass
+
+                    # Try and obtain predicted gamestate from Hardware AI 2
+                    try:
+                        p2_prediction = self.p2_prediction_queue.get_nowait()
+
+                        is_valid_prediction = self.prediction_filter(p2_prediction)
+
+                        if is_valid_prediction == True:
+                            self.prediction_value = p2_prediction
+                            self.handle_gamestate()
+                            print("P1 Received: " + str(self.p1_received))
+                            print("P2 Received: " + str(self.p2_received))
+
+                        if (self.p1_received == True) and (self.p2_received == True):
+                            self.send_data()
+                            self.p1_received = False
+                            self.p2_received = False
+                        #time.sleep(0)
+
+                    except Empty:
+                        #time.sleep(0)
+                        pass
 
                 elif updated_gamestate == "no_update":
-
                     # Try and obtain predicted gamestate from Hardware AI
                     try:
-                        AI_prediction = self.prediction_queue.get_nowait()
+                        p1_prediction = self.p1_prediction_queue.get_nowait()
 
-                        valid_prediction = self.prediction_filter(AI_prediction)
+                        is_valid_prediction = self.prediction_filter(p1_prediction)
 
-                        if valid_prediction:
-                            self.prediction_value = AI_prediction
+                        if is_valid_prediction:
+                            self.prediction_value = p1_prediction
                             self.handle_gamestate()
                             print("P1 Received: " + str(self.p1_received))
                             print("P2 Received: " + str(self.p2_received))
@@ -305,28 +333,148 @@ class eval_client(threading.Thread):
                             self.send_data()
                             self.p1_received = False
                             self.p2_received = False
-                        """
-                        self.prediction_value = AI_prediction
-                        self.handle_gamestate()
-                        self.send_data()
-                        """
-                        time.sleep(0)
+                        #time.sleep(0)
 
                     except Empty:
-                        time.sleep(0)
-                        continue
+                        #time.sleep(0)
+                        pass
 
-            elif self.game_mode == 2:
-                time.sleep(0)
-                try:
-                    self.prediction_value = self.prediction_queue.get_nowait()
-                    self.handle_gamestate()
-                    time.sleep(0)
-                    self.gamestate_queue.put(self.predicted_gamestate)
-                except Empty:
-                    time.sleep(0)
-                    time.sleep(0)
-                    continue
+                    # Try and obtain predicted gamestate from Hardware AI 2
+                    try:
+                        p2_prediction = self.p2_prediction_queue.get_nowait()
+
+                        is_valid_prediction = self.prediction_filter(p2_prediction)
+
+                        if is_valid_prediction == True:
+                            self.prediction_value = p2_prediction
+                            self.handle_gamestate()
+                            print("P1 Received: " + str(self.p1_received))
+                            print("P2 Received: " + str(self.p2_received))
+
+                        if (self.p1_received == True) and (self.p2_received == True):
+                            self.send_data()
+                            self.p1_received = False
+                            self.p2_received = False
+                        #time.sleep(0)
+
+                    except Empty:
+                        #time.sleep(0)
+                        pass
+
+            #time.sleep(0.8)
+
+        """
+        while True:
+            #print("EVAL CLIENT")
+            self.p1.update_shield_timings()
+            self.p2.update_shield_timings()
+            self.send_shield_timeout()
+            #time.sleep(0)
+            if self.game_mode != 2:
+                updated_gamestate = self.receive_data()
+                if updated_gamestate != "no_update":
+
+                    # First, update the individual player states, then send evaluated gamestate to relay_server
+                    self.p1.update_from_eval(updated_gamestate["p1"])
+                    self.p1_received = False
+                    self.p2.update_from_eval(updated_gamestate["p2"])
+                    self.p2_received = False
+                    self.predicted_gamestate = {"p1": self.p1.get_dict(), "p2": self.p2.get_dict()}
+                    self.p1_gamestate_queue.put(self.predicted_gamestate)
+                    self.p2_gamestate_queue.put(self.predicted_gamestate)
+                    #time.sleep(0)
+
+                    # Try and obtain predicted gamestate from Hardware AI 1
+                    try:
+                        p1_prediction = self.p1_prediction_queue.get_nowait()
+
+                        is_valid_prediction = self.prediction_filter(p1_prediction)
+
+                        if is_valid_prediction == True:
+                            self.prediction_value = p1_prediction
+                            self.handle_gamestate()
+                            print("P1 Received: " + str(self.p1_received))
+                            print("P2 Received: " + str(self.p2_received))
+
+                        if (self.p1_received == True) and (self.p2_received == True):
+                            self.send_data()
+                            self.p1_received = False
+                            self.p2_received = False
+                        #time.sleep(0)
+
+                    except Empty:
+                        #time.sleep(0)
+                        pass
+
+                    # Try and obtain predicted gamestate from Hardware AI 2
+                    try:
+                        p2_prediction = self.p2_prediction_queue.get_nowait()
+
+                        is_valid_prediction = self.prediction_filter(p2_prediction)
+
+                        if is_valid_prediction == True:
+                            self.prediction_value = p2_prediction
+                            self.handle_gamestate()
+                            print("P1 Received: " + str(self.p1_received))
+                            print("P2 Received: " + str(self.p2_received))
+
+                        if (self.p1_received == True) and (self.p2_received == True):
+                            self.send_data()
+                            self.p1_received = False
+                            self.p2_received = False
+                        #time.sleep(0)
+
+                    except Empty:
+                        #time.sleep(0)
+                        pass 
+
+                elif updated_gamestate == "no_update":
+                    # Try and obtain predicted gamestate from Hardware AI
+                    try:
+                        p1_prediction = self.p1_prediction_queue.get_nowait()
+
+                        is_valid_prediction = self.prediction_filter(p1_prediction)
+
+                        if is_valid_prediction:
+                            self.prediction_value = p1_prediction
+                            self.handle_gamestate()
+                            print("P1 Received: " + str(self.p1_received))
+                            print("P2 Received: " + str(self.p2_received))
+
+                        if (self.p1_received == True) and (self.p2_received == True):
+                            self.send_data()
+                            self.p1_received = False
+                            self.p2_received = False
+                        #time.sleep(0)
+
+                    except Empty:
+                        #time.sleep(0)
+                        pass
+
+                    # Try and obtain predicted gamestate from Hardware AI 2
+                    try:
+                        p2_prediction = self.p2_prediction_queue.get_nowait()
+
+                        is_valid_prediction = self.prediction_filter(p2_prediction)
+
+                        if is_valid_prediction == True:
+                            self.prediction_value = p2_prediction
+                            self.handle_gamestate()
+                            print("P1 Received: " + str(self.p1_received))
+                            print("P2 Received: " + str(self.p2_received))
+
+                        if (self.p1_received == True) and (self.p2_received == True):
+                            self.send_data()
+                            self.p1_received = False
+                            self.p2_received = False
+                        #time.sleep(0)
+
+                    except Empty:
+                        #time.sleep(0)
+                        pass
+                
+            #time.sleep(0.8)
+            """
 
 
 
