@@ -57,7 +57,7 @@ class eval_client(threading.Thread):
 
     def send_data(self):
         success = True
-        
+
         plaintext = json.dumps(self.predicted_gamestate)
         plaintext_length = str(len(plaintext))+'_'
         ciphertext = self._encrypt_message(plaintext)
@@ -74,7 +74,7 @@ class eval_client(threading.Thread):
     
     def receive_data(self):
         self.socket.setblocking(0)
-        try: 
+        try:
             data = b''
             while not data.endswith(b'_'):
                 _d = self.socket.recv(1)
@@ -147,7 +147,7 @@ class eval_client(threading.Thread):
                 else:
                     self.p1.no_apply()
                 self.p2.perform_grenade()
-        
+
         # Shield
         elif command == 3:
             if ((sender == 1) and (receiver == 2)):
@@ -191,7 +191,7 @@ class eval_client(threading.Thread):
                 self.p1.no_apply()
 
         return
-    
+
     def handle_gamestate(self):
         sender = self.prediction_value["sender"]
         receiver = self.prediction_value["receiver"]
@@ -214,14 +214,14 @@ class eval_client(threading.Thread):
                 return True
             elif self.p1_received == True:
                 return False
-                
+
         elif (sender == 2) and (receiver == 1):
             if self.p2_received == False:
                 self.p2_received = True
                 return True
             elif self.p2_received == True:
                 return False
-    
+
     def send_shield_timeout(self):
         if self.p1.shield_timeout == True:
             temp_gamestate = {"p1": self.p1.get_dict(), "p2": self.p2.get_dict()}
@@ -234,7 +234,6 @@ class eval_client(threading.Thread):
             temp_gamestate["p2"]["action"] = "shield_timeout"
             self.gamestate_queue.put(temp_gamestate)
             self.p2.shield_timeout = False
-
 
     def run(self):
         # Connect to Ultra96
@@ -261,9 +260,9 @@ class eval_client(threading.Thread):
                     time.sleep(0)
 
                     # Try and obtain predicted gamestate from Hardware AI
-                    try: 
+                    try:
                         AI_prediction = self.prediction_queue.get_nowait()
-                        
+
                         is_valid_prediction = self.prediction_filter(AI_prediction)
 
                         if is_valid_prediction == True:
@@ -291,9 +290,9 @@ class eval_client(threading.Thread):
                 elif updated_gamestate == "no_update":
 
                     # Try and obtain predicted gamestate from Hardware AI
-                    try: 
+                    try:
                         AI_prediction = self.prediction_queue.get_nowait()
-                        
+
                         valid_prediction = self.prediction_filter(AI_prediction)
 
                         if valid_prediction:
@@ -319,7 +318,7 @@ class eval_client(threading.Thread):
 
             elif self.game_mode == 2:
                 time.sleep(0)
-                try: 
+                try:
                     self.prediction_value = self.prediction_queue.get_nowait()
                     self.handle_gamestate()
                     time.sleep(0)
