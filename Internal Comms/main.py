@@ -171,16 +171,20 @@ class PeripheralDevice(threading.Thread):
                 self.game_state_timeout = time.time() + 1
                 print("d[{i}] send data to vest: {hp}".format(i=self.pid, hp=vest_data))
         except Empty:
-            if self.pid == 0 and not self.current_gun_state == 0:
+            try:
+                if self.pid == 0 and not self.current_gun_state == 0:
+                    if time.time() > self.game_state_timeout:
+                        self.ch.write(self.current_gun_state)
+                        self.game_state_timeout = time.time() + 1
+                        #print("d[{i}] repeat data to gun: {bullets}".format(i=self.pid, bullets=self.current_gun_state))
+                elif self.pid == 1 and not self.current_vest_state == 0:
+                    if time.time() > self.game_state_timeout:
+                        self.ch.write(self.current_vest_state)
+                        self.game_state_timeout = time.time() + 1
+                        #print("d[{i}] repeat data to vest: {hp}".format(i=self.pid, hp=self.current_vest_state))
+            except btle.BTLEDisconnectError:
                 if time.time() > self.game_state_timeout:
-                    self.ch.write(self.current_gun_state)
                     self.game_state_timeout = time.time() + 1
-                    print("d[{i}] repeat data to gun: {bullets}".format(i=self.pid, bullets=self.current_gun_state))
-            elif self.pid == 1 and not self.current_vest_state == 0:
-                if time.time() > self.game_state_timeout:
-                    self.ch.write(self.current_vest_state)
-                    self.game_state_timeout = time.time() + 1
-                    print("d[{i}] repeat data to vest: {hp}".format(i=self.pid, hp=self.current_vest_state))
 
     def receive_data(self):
         try:
