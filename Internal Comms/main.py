@@ -185,6 +185,7 @@ class PeripheralDevice(threading.Thread):
             except btle.BTLEDisconnectError:
                 if time.time() > self.game_state_timeout:
                     self.game_state_timeout = time.time() + 1
+                self.connection = False
 
     def receive_data(self):
         try:
