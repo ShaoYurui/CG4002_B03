@@ -150,7 +150,7 @@ class relay_server():
 
         while True:
             #print("RELAY SERVER {conn}!!".format(conn = self.connection))
-            time.sleep(0.001)
+            time.sleep(0.002)
             self.send_data()
             self.receive_data()
             #time.sleep(0)

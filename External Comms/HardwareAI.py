@@ -50,7 +50,7 @@ class HardwareAI():
         user_1_prediction = -1
         #prediction = -1
         while True:
-            time.sleep(0.001)
+            time.sleep(0.002)
             #print("Hardware AI {sender}!!!".format(sender = self.sender))
             try:
                 msg = self.accelerometer_queue.get_nowait()
