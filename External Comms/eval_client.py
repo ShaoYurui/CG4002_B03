@@ -247,7 +247,7 @@ class eval_client():
             print("eval_client is now connected to eval_server!")
 
         while True:
-            time.sleep(0.001)
+            time.sleep(0.002)
             #print("EVAL CLIENT")
             self.p1.update_shield_timings()
             self.p2.update_shield_timings()
